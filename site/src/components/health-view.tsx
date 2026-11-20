@@ -12,6 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import type { SiteRegistryPayload } from "@/lib/registry";
+import { cn } from "@/lib/utils";
 import { useAdminSession } from "./admin-context";
 import { StatusBadge } from "./status-badge";
 import { Badge } from "./ui/badge";
@@ -20,7 +21,8 @@ import { Card } from "./ui/card";
 
 export function HealthView({ data }: { data: SiteRegistryPayload }) {
   const t = useTranslations("health");
-  const { authenticated, envStatus, capabilities, openLoginModal } = useAdminSession();
+  const { authenticated, envStatus, capabilities, openLoginModal, preloadLoginModal } =
+    useAdminSession();
 
   const liveCount = data.entries.filter((e) => e.health.status === "live").length;
   const warnCount = data.entries.filter((e) => e.health.status === "warn").length;
@@ -116,8 +118,8 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
         </Card>
       </div>
 
-      {/* Vercel Server Env & Provider Readiness */}
-      <Card className="space-y-4 p-6">
+      {/* Vercel Server Env & Provider Readiness (SSR-hydrated — zero post-load pop-in!) */}
+      <Card className="isolated-card space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="font-editorial text-xl font-semibold text-[var(--text-primary)]">
@@ -126,7 +128,14 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">{t("serverEnvDesc")}</p>
           </div>
           {!authenticated ? (
-            <Button type="button" variant="outline" size="sm" onClick={openLoginModal}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onMouseEnter={preloadLoginModal}
+              onFocus={preloadLoginModal}
+              onClick={openLoginModal}
+            >
               <LockSimpleOpen size={14} weight="bold" aria-hidden="true" />
               <span>{t("unlockAdmin")}</span>
             </Button>
@@ -159,7 +168,7 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
                 <code className="font-mono-code text-xs font-semibold text-[var(--text-primary)]">
                   {item.name}
                 </code>
-                <Badge variant={item.ready ? "live" : "warn"}>
+                <Badge variant={item.ready ? "live" : "warn"} className="min-w-[5.75rem] justify-center">
                   {item.ready ? (
                     <CheckCircle size={11} weight="fill" aria-hidden="true" />
                   ) : (
@@ -173,34 +182,35 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
           ))}
         </div>
 
-        {capabilities.length > 0 ? (
-          <ul role="list" className="grid gap-2.5 sm:grid-cols-2">
-            {capabilities.map((cap) => (
-              <li
-                key={cap.domain}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] px-4 py-3"
+        <ul role="list" className="grid gap-2.5 sm:grid-cols-2">
+          {capabilities.map((cap) => (
+            <li
+              key={cap.domain}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] px-4 py-3"
+            >
+              <div>
+                <span className="font-mono-code text-sm font-semibold text-[var(--text-primary)]">
+                  {cap.domain}
+                </span>
+                <span className="ml-2 text-xs text-[var(--text-muted)]">({cap.registrar})</span>
+              </div>
+              <Badge
+                variant={cap.mode === "auto-ready" ? "live" : "warn"}
+                className="min-w-[9.25rem] justify-center"
               >
-                <div>
-                  <span className="font-mono-code text-sm font-semibold text-[var(--text-primary)]">
-                    {cap.domain}
-                  </span>
-                  <span className="ml-2 text-xs text-[var(--text-muted)]">({cap.registrar})</span>
-                </div>
-                <Badge variant={cap.mode === "auto-ready" ? "live" : "warn"}>
-                  {cap.mode === "auto-ready"
-                    ? t("capAutoReady")
-                    : cap.mode === "auto-needs-env"
-                      ? t("capNeedsEnv")
-                      : t("capManualCopy")}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+                {cap.mode === "auto-ready"
+                  ? t("capAutoReady")
+                  : cap.mode === "auto-needs-env"
+                    ? t("capNeedsEnv")
+                    : t("capManualCopy")}
+              </Badge>
+            </li>
+          ))}
+        </ul>
       </Card>
 
       {/* Per-Subdomain Probe Diagnostics */}
-      <Card className="space-y-4 p-6">
+      <Card className="isolated-card space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-editorial text-xl font-semibold text-[var(--text-primary)]">
             {t("probeTitle")}
@@ -223,10 +233,13 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
           </p>
         ) : (
           <ul role="list" className="divide-y divide-[var(--border-color)]">
-            {data.entries.map((entry) => (
+            {data.entries.map((entry, idx) => (
               <li
                 key={entry.fqdn}
-                className="flex flex-col gap-2 py-3.5 first:pt-1 last:pb-1 sm:flex-row sm:items-center sm:justify-between"
+                className={cn(
+                  "flex flex-col gap-2 py-3.5 first:pt-1 last:pb-1 sm:flex-row sm:items-center sm:justify-between",
+                  idx >= 8 && "deferred-record-row",
+                )}
               >
                 <div className="min-w-0">
                   <a

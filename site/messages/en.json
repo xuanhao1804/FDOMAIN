@@ -136,7 +136,7 @@
     "emptyTitle": "No subdomains registered yet",
     "emptyDesc": "Create your first subdomain in Claim Subdomain, or configure Vercel API env vars to list live Name.com records below.",
     "emptyClaimCta": "Create Subdomain",
-    "noGitFilesLiveBelow": "No Git-tracked JSON files yet — live API records appear below.",
+    "noGitFilesLiveBelow": "No Git-tracked JSON files yet — live API records appear above.",
     "checkDoh": "Check DoH",
     "editAriaLabel": "Edit {fqdn} on GitHub",
     "copyTargetAria": "Copy {type} target for {fqdn}",
@@ -159,7 +159,9 @@
     "dohErrorFallback": "Error",
     "dohLookupFailed": "Lookup failed",
     "dohResultFound": "DoH {type}: {answers}",
-    "dohResultEmpty": "DoH: {status}"
+    "dohResultEmpty": "DoH: {status}",
+    "loadingLive": "Loading live DNS records...",
+    "loadMoreLive": "Load more ({remaining} remaining)"
   },
   "claim": {
     "title": "Instant Subdomain Studio",

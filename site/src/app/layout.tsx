@@ -3,6 +3,9 @@ import { Be_Vietnam_Pro, JetBrains_Mono, Newsreader } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { AppShell } from "@/components/app-shell";
+import { isAdminAuthConfigured } from "@/lib/auth";
+import { isServerAdminAuthenticated } from "@/lib/auth-cookies";
+import { getDomainCapability, getProviderEnvStatus } from "@/lib/dns-providers";
 import { loadSiteRegistryData } from "@/lib/registry";
 import "./globals.css";
 
@@ -42,12 +45,19 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [locale, messages, tCommon] = await Promise.all([
+  const [locale, messages, tCommon, initialAuthenticated] = await Promise.all([
     getLocale(),
     getMessages(),
     getTranslations("common"),
+    isServerAdminAuthenticated(),
   ]);
   const data = loadSiteRegistryData();
+  const initialAdminState = {
+    authenticated: initialAuthenticated,
+    configured: isAdminAuthConfigured(),
+    envStatus: getProviderEnvStatus(),
+    capabilities: data.rootDomains.map((dom) => getDomainCapability(dom)),
+  };
 
   return (
     <html
@@ -69,6 +79,7 @@ export default async function RootLayout({
             repository={data.repository}
             totalDnsRecords={data.totalDnsRecords}
             maxTotalRecords={data.limits.maxTotalRecords}
+            initialAdminState={initialAdminState}
           >
             {children}
           </AppShell>

@@ -18,7 +18,11 @@ import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { SiteRootDomainMeta } from "@/lib/registry";
-import { AdminSessionProvider, useAdminSession } from "./admin-context";
+import {
+  AdminSessionProvider,
+  useAdminSession,
+  type InitialAdminState,
+} from "./admin-context";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { LanguageSwitcher } from "./ui/language-switcher";
@@ -29,6 +33,7 @@ interface AppShellProps {
   repository: string;
   totalDnsRecords: number;
   maxTotalRecords: number;
+  initialAdminState: InitialAdminState;
   children: ReactNode;
 }
 
@@ -99,7 +104,8 @@ function SidebarContents({
 }) {
   const t = useTranslations("nav");
   const tCommon = useTranslations("common");
-  const { authenticated, configured, openLoginModal, logout } = useAdminSession();
+  const { authenticated, configured, openLoginModal, preloadLoginModal, logout } =
+    useAdminSession();
   const quotaPct = Math.min(100, Math.round((totalDnsRecords / maxTotalRecords) * 100));
   const repoUrl = `https://github.com/${repository}`;
 
@@ -145,12 +151,12 @@ function SidebarContents({
                       {item.renderIcon(active)}
                     </span>
                     <span className="flex-1 truncate">{t(item.labelKey)}</span>
-                    {active ? (
-                      <span
-                        aria-hidden="true"
-                        className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-terracotta)]"
-                      />
-                    ) : null}
+                    <span
+                      aria-hidden="true"
+                      className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-terracotta)] transition-opacity ${
+                        active ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
                   </Link>
                 </li>
               );
@@ -160,11 +166,14 @@ function SidebarContents({
       </div>
 
       <div className="space-y-3">
-        {/* Admin Auto-DNS Status Card */}
-        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-3.5">
-          <div className="flex items-center justify-between gap-2 text-xs font-semibold">
-            <span className="text-[var(--text-primary)]">{t("adminAutoDns")}</span>
-            <Badge variant={authenticated ? "live" : configured ? "neutral" : "warn"}>
+        {/* Admin Auto-DNS Status Card (fixed badge width — zero hydration/toggle shift) */}
+        <div className="isolated-card rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-3">
+          <div className="flex items-center justify-between gap-1.5 text-xs font-semibold">
+            <span className="whitespace-nowrap text-[var(--text-primary)]">{t("adminAutoDns")}</span>
+            <Badge
+              variant={authenticated ? "live" : configured ? "neutral" : "warn"}
+              className="min-w-[5.25rem] shrink-0 justify-center"
+            >
               {authenticated
                 ? t("adminUnlocked")
                 : configured
@@ -191,6 +200,8 @@ function SidebarContents({
               type="button"
               variant="outline"
               size="sm"
+              onMouseEnter={preloadLoginModal}
+              onFocus={preloadLoginModal}
               onClick={() => {
                 onNavigate?.();
                 openLoginModal();
@@ -204,7 +215,7 @@ function SidebarContents({
         </div>
 
         {/* Registry Quota Card */}
-        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-3.5">
+        <div className="isolated-card rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-3.5">
           <div className="flex items-center justify-between text-xs font-semibold">
             <span className="text-[var(--text-primary)]">{t("registryQuota")}</span>
             <span className="tabular-nums font-mono-code text-[var(--text-secondary)]">
@@ -231,10 +242,10 @@ function SidebarContents({
   );
 }
 
-export function AppShell(props: AppShellProps) {
+export function AppShell({ initialAdminState, ...rest }: AppShellProps) {
   return (
-    <AdminSessionProvider>
-      <AppShellInner {...props} />
+    <AdminSessionProvider initialState={initialAdminState}>
+      <AppShellInner {...rest} initialAdminState={initialAdminState} />
     </AdminSessionProvider>
   );
 }
@@ -339,7 +350,7 @@ function AppShellInner({
   }, [pathname]);
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[264px_minmax(0,1fr)]">
       {/* Desktop Persistent Sidebar */}
       <aside
         aria-label={t("sidebarAriaLabel")}
@@ -420,7 +431,7 @@ function AppShellInner({
                 aria-expanded={drawerOpen}
                 aria-controls="mobile-nav-drawer"
                 onClick={openDrawer}
-                className="lg:hidden"
+                className="shrink-0 lg:hidden"
               >
                 <List size={18} weight="bold" aria-hidden="true" />
               </Button>
@@ -434,8 +445,9 @@ function AppShellInner({
               <ThemeToggle />
               <LanguageSwitcher />
 
+              {/* Fixed min-width pins ThemeToggle & LanguageSwitcher across all routes & VI/EN */}
               {!isRouteActive(pathname, "/claim") ? (
-                <Button asChild size="sm">
+                <Button asChild size="sm" className="min-w-[5.75rem] sm:min-w-[9.5rem]">
                   <Link href="/claim">
                     <Plus size={14} weight="bold" aria-hidden="true" />
                     <span className="sm:hidden">{t("claimCtaShort")}</span>
@@ -443,7 +455,12 @@ function AppShellInner({
                   </Link>
                 </Button>
               ) : (
-                <Button asChild variant="outline" size="sm">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="min-w-[5.75rem] sm:min-w-[9.5rem]"
+                >
                   <Link href="/directory">
                     <Stack size={14} weight="duotone" aria-hidden="true" />
                     <span className="sm:hidden">{t("viewDirectoryShort")}</span>

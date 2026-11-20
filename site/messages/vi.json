@@ -136,7 +136,7 @@
     "emptyTitle": "Chưa có subdomain nào",
     "emptyDesc": "Hãy tạo subdomain đầu tiên tại mục Tạo Subdomain, hoặc cấu hình biến API Vercel để hiển thị bản ghi Name.com trực tiếp bên dưới.",
     "emptyClaimCta": "Tạo Subdomain",
-    "noGitFilesLiveBelow": "Chưa có file JSON trong repo — các bản ghi API trực tiếp hiển thị bên dưới.",
+    "noGitFilesLiveBelow": "Chưa có file JSON trong repo — các bản ghi API trực tiếp hiển thị phía trên.",
     "checkDoh": "Kiểm tra DoH",
     "editAriaLabel": "Chỉnh sửa {fqdn} trên GitHub",
     "copyTargetAria": "Sao chép đích {type} cho {fqdn}",
@@ -159,7 +159,9 @@
     "dohErrorFallback": "Lỗi",
     "dohLookupFailed": "Tra cứu thất bại",
     "dohResultFound": "DoH {type}: {answers}",
-    "dohResultEmpty": "DoH: {status}"
+    "dohResultEmpty": "DoH: {status}",
+    "loadingLive": "Đang tải bản ghi DNS trực tiếp...",
+    "loadMoreLive": "Tải thêm ({remaining} bản ghi còn lại)"
   },
   "claim": {
     "title": "Trình Tạo Subdomain Tức Thì",

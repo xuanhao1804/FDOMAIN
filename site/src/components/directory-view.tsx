@@ -3,7 +3,6 @@
 import {
   ArrowsClockwise,
   Broadcast,
-  FolderOpen,
   LockSimpleOpen,
   MagnifyingGlass,
   PencilSimple,
@@ -12,6 +11,7 @@ import {
   Trash,
   WarningCircle,
 } from "@phosphor-icons/react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
@@ -24,6 +24,16 @@ import { StatusBadge } from "./status-badge";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { Skeleton } from "./ui/skeleton";
+
+const importDeleteDialog = () =>
+  import("./delete-record-dialog").then((mod) => mod.DeleteRecordDialog);
+
+const LazyDeleteRecordDialog = dynamic(importDeleteDialog, {
+  ssr: false,
+});
+
+const LIVE_PAGE_SIZE = 20;
 
 interface DirectoryViewProps {
   entries: SiteSubdomainItem[];
@@ -41,7 +51,7 @@ export function DirectoryView({
   const t = useTranslations("directory");
   const tStatus = useTranslations("status");
   const tCommon = useTranslations("common");
-  const { authenticated, openLoginModal } = useAdminSession();
+  const { authenticated, openLoginModal, preloadLoginModal } = useAdminSession();
 
   const [domainFilter, setDomainFilter] = useState<string>(initialDomainFilter);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -50,16 +60,22 @@ export function DirectoryView({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [liveRecords, setLiveRecords] = useState<LiveDnsRecord[]>([]);
-  const [liveLoading, setLiveLoading] = useState(false);
+  const [liveLoading, setLiveLoading] = useState(true);
+  const [hasLoadedLiveOnce, setHasLoadedLiveOnce] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [actionBanner, setActionBanner] = useState<string | null>(null);
   const [dohResults, setDohResults] = useState<Record<string, string>>({});
+  const [visibleLiveCount, setVisibleLiveCount] = useState(LIVE_PAGE_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // Delete confirmation modal state
-  const deleteDialogRef = useRef<HTMLDialogElement>(null);
+  // Lazy delete confirmation modal state
+  const [deleteDialogMounted, setDeleteDialogMounted] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<LiveDnsRecord | null>(null);
-  const [confirmReservedDelete, setConfirmReservedDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const preloadDeleteDialog = useCallback(() => {
+    void importDeleteDialog();
+  }, []);
 
   const loadLiveRecords = useCallback(async () => {
     setLiveLoading(true);
@@ -74,15 +90,21 @@ export function DirectoryView({
       const body = (await res.json()) as { records?: LiveDnsRecord[] };
       setLiveRecords(body.records ?? []);
     } catch {
-      // Static or offline mode
+      // Offline / fallback mode
     } finally {
       setLiveLoading(false);
+      setHasLoadedLiveOnce(true);
     }
   }, [t]);
 
   useEffect(() => {
     void loadLiveRecords();
   }, [loadLiveRecords, authenticated]);
+
+  // Reset progressive slice when filter changes
+  useEffect(() => {
+    setVisibleLiveCount(LIVE_PAGE_SIZE);
+  }, [domainFilter, deferredQuery]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -135,15 +157,11 @@ export function DirectoryView({
   }
 
   function requestDeleteRecord(rec: LiveDnsRecord) {
+    setDeleteDialogMounted(true);
     setPendingDelete(rec);
-    setConfirmReservedDelete(false);
-    const dialog = deleteDialogRef.current;
-    if (dialog && !dialog.open) {
-      dialog.showModal();
-    }
   }
 
-  async function executeConfirmedDelete() {
+  async function executeConfirmedDelete(allowReserved: boolean) {
     if (!pendingDelete || !pendingDelete.id) return;
     setDeleting(true);
     setActionBanner(null);
@@ -154,7 +172,7 @@ export function DirectoryView({
         body: JSON.stringify({
           rootDomain: pendingDelete.domain,
           recordId: pendingDelete.id,
-          allowReserved: confirmReservedDelete,
+          allowReserved,
         }),
       });
       const body = (await res.json()) as { ok?: boolean; error?: string };
@@ -173,9 +191,7 @@ export function DirectoryView({
       setActionBanner(t("deleteNetworkError"));
     } finally {
       setDeleting(false);
-      if (deleteDialogRef.current?.open) {
-        deleteDialogRef.current.close("confirm");
-      }
+      setPendingDelete(null);
     }
   }
 
@@ -215,6 +231,27 @@ export function DirectoryView({
     );
   });
 
+  const displayedLiveRecords = filteredLiveRecords.slice(0, visibleLiveCount);
+  const remainingLiveCount = Math.max(0, filteredLiveRecords.length - displayedLiveRecords.length);
+
+  // Auto-load next batch lazily when scrolling near bottom sentinel
+  useEffect(() => {
+    if (remainingLiveCount === 0) return;
+    const node = loadMoreRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (observerEntries) => {
+        if (observerEntries.some((entry) => entry.isIntersecting)) {
+          setVisibleLiveCount((prev) => prev + LIVE_PAGE_SIZE);
+        }
+      },
+      { rootMargin: "240px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [remainingLiveCount]);
+
   const statusButtons: Array<{ id: StatusFilter; label: string }> = [
     { id: "all", label: tStatus("all") },
     { id: "live", label: tStatus("live") },
@@ -242,7 +279,14 @@ export function DirectoryView({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {!authenticated ? (
-            <Button type="button" variant="outline" size="sm" onClick={openLoginModal}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onMouseEnter={preloadLoginModal}
+              onFocus={preloadLoginModal}
+              onClick={openLoginModal}
+            >
               <LockSimpleOpen size={14} weight="bold" aria-hidden="true" />
               <span>{t("unlockAdminView")}</span>
             </Button>
@@ -257,7 +301,7 @@ export function DirectoryView({
       </div>
 
       {/* Filter Bar Card */}
-      <Card className="space-y-4 p-4 sm:p-5">
+      <Card className="isolated-card space-y-4 p-4 sm:p-5">
         <div
           role="group"
           aria-label={t("filterDomainAria")}
@@ -359,7 +403,7 @@ export function DirectoryView({
 
               <span
                 aria-live="polite"
-                className="font-mono-code tabular-nums pl-1 text-xs text-[var(--text-muted)]"
+                className="font-mono-code tabular-nums min-w-[10.5rem] pl-1 text-right text-xs text-[var(--text-muted)]"
               >
                 {t("summaryCount", {
                   registry: filteredGitEntries.length,
@@ -371,182 +415,7 @@ export function DirectoryView({
         </search>
       </Card>
 
-      {actionBanner ? (
-        <div
-          role="status"
-          className="rounded-lg border border-[var(--badge-info-border)] bg-[var(--badge-info-bg)] px-4 py-3 text-xs font-medium text-[var(--badge-info-fg)]"
-        >
-          {actionBanner}
-        </div>
-      ) : null}
-
-      {/* Section 1: Git Registry Entries */}
-      <section aria-labelledby="git-registry-heading" className="space-y-3">
-        <h2
-          id="git-registry-heading"
-          className="font-editorial text-xl font-semibold text-[var(--text-primary)]"
-        >
-          {t("trackedHeading")}
-        </h2>
-
-        {filteredGitEntries.length === 0 && filteredLiveRecords.length === 0 ? (
-          <Card className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-paper)] text-[var(--text-muted)]">
-              <FolderOpen size={24} weight="duotone" aria-hidden="true" />
-            </span>
-            {hasActiveFilters ? (
-              <>
-                <div className="space-y-1">
-                  <p className="text-base font-semibold text-[var(--text-primary)]">
-                    {t("noMatchTitle")}
-                  </p>
-                  <p className="max-w-md text-xs text-[var(--text-muted)] sm:text-sm">
-                    {t("noMatchDesc")}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setQuery("");
-                    setDomainFilter("all");
-                    setStatusFilter("all");
-                  }}
-                >
-                  {t("showAllButton")}
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="space-y-1">
-                  <p className="text-base font-semibold text-[var(--text-primary)]">
-                    {t("emptyTitle")}
-                  </p>
-                  <p className="max-w-md text-xs text-[var(--text-muted)] sm:text-sm">
-                    {t("emptyDesc")}
-                  </p>
-                </div>
-                <Button asChild>
-                  <Link href={activeClaimHref}>
-                    <Plus size={15} weight="bold" aria-hidden="true" />
-                    <span>{t("emptyClaimCta")}</span>
-                  </Link>
-                </Button>
-              </>
-            )}
-          </Card>
-        ) : filteredGitEntries.length === 0 ? (
-          <Card className="px-5 py-5 text-xs sm:text-sm text-[var(--text-muted)]">
-            {t("noGitFilesLiveBelow")}
-          </Card>
-        ) : (
-          <ul role="list" className="space-y-2.5">
-            {filteredGitEntries.map((entry) => {
-              const firstType = entry.records[0]?.type ?? "CNAME";
-              return (
-                <li
-                  key={entry.fqdn}
-                  className="bento-card bento-card-interactive flex flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between"
-                >
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <a
-                        href={`https://${entry.fqdn}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono-code text-sm font-bold text-[var(--text-primary)] underline decoration-[var(--border-strong)] underline-offset-4 hover:text-[var(--accent-terracotta)]"
-                      >
-                        {entry.fqdn}
-                      </a>
-                      <StatusBadge status={entry.health.status} reason={entry.health.reason} />
-                    </div>
-                    <p className="text-xs text-[var(--text-muted)]">{entry.description}</p>
-                    <p className="font-mono-code min-h-[1.1rem] truncate text-xs font-medium text-[var(--badge-live-fg)]">
-                      {dohResults[entry.fqdn] ?? ""}
-                    </p>
-                  </div>
-
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <a
-                      href={entry.owner.profileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-paper)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--border-strong)]"
-                    >
-                      <img
-                        src={entry.owner.avatarUrl}
-                        alt=""
-                        width={16}
-                        height={16}
-                        className="rounded-full"
-                      />
-                      <span>@{entry.owner.github}</span>
-                    </a>
-
-                    <ul role="list" className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
-                      {entry.records.map((rec, idx) => {
-                        const targetHost =
-                          rec.label === entry.label
-                            ? entry.fqdn
-                            : `${rec.label}.${entry.rootDomain}`;
-                        return (
-                          <li
-                            key={`${rec.label}-${rec.type}-${idx}`}
-                            className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-paper)] px-2.5 py-1"
-                          >
-                            <Badge variant="info" className="font-mono-code shrink-0">
-                              {rec.type}
-                            </Badge>
-                            {rec.label !== entry.label ? (
-                              <span className="font-mono-code shrink-0 text-xs text-[var(--text-muted)]">
-                                {rec.label}
-                              </span>
-                            ) : null}
-                            <code className="font-mono-code truncate text-xs text-[var(--text-primary)]">
-                              {rec.value}
-                            </code>
-                            <CopyButton
-                              value={rec.value}
-                              label={t("copyTargetAria", {
-                                type: rec.type,
-                                fqdn: targetHost,
-                              })}
-                            />
-                          </li>
-                        );
-                      })}
-                    </ul>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => checkLiveDoh(entry.fqdn, firstType)}
-                    >
-                      <Broadcast size={14} weight="duotone" aria-hidden="true" />
-                      <span>{t("checkDoh")}</span>
-                    </Button>
-
-                    <Button asChild variant="outline" size="sm">
-                      <a
-                        href={entry.editUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={t("editAriaLabel", { fqdn: entry.fqdn })}
-                      >
-                        <PencilSimple size={14} weight="duotone" aria-hidden="true" />
-                        <span>{tCommon("edit")}</span>
-                      </a>
-                    </Button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      {/* Section 2: Live DNS Provider API Records */}
+      {/* Section 1: Live DNS Provider API Records (Primary — stable skeleton height, zero jump!) */}
       <section aria-labelledby="live-provider-heading" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -578,137 +447,309 @@ export function DirectoryView({
           </Button>
         </div>
 
-        {liveError ? (
-          <div className="flex items-center gap-2 rounded-lg border border-[var(--badge-warn-border)] bg-[var(--badge-warn-bg)] px-4 py-3 text-xs font-medium text-[var(--badge-warn-fg)]">
-            <WarningCircle size={15} weight="duotone" aria-hidden="true" className="shrink-0" />
-            <span>{liveError}</span>
-          </div>
-        ) : filteredLiveRecords.length === 0 ? (
-          <Card className="px-5 py-5 text-xs sm:text-sm text-[var(--text-muted)]">
-            {t("emptyLiveRecords")}
-          </Card>
-        ) : (
-          <ul role="list" className="space-y-2">
-            {filteredLiveRecords.map((rec, i) => (
-              <li
-                key={`${rec.domain}-${rec.id ?? rec.host}-${rec.type}-${i}`}
-                className="bento-card bento-card-interactive flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="info" className="font-mono-code">
-                      {rec.type}
-                    </Badge>
-                    <span className="font-mono-code text-sm font-semibold text-[var(--text-primary)]">
-                      {rec.fqdn}
-                    </span>
-                    {rec.protected ? (
-                      <Badge variant="neutral">
-                        <ShieldCheck size={11} weight="fill" aria-hidden="true" />
-                        <span>{t("protectedBadge")}</span>
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <code className="font-mono-code block truncate text-xs text-[var(--text-muted)]">
-                    {rec.value} · TTL {rec.ttl}s
-                  </code>
-                </div>
+        {/* Fixed-height inline status strip (zero vertical jump when actionBanner/error changes) */}
+        <div className="min-h-[1.5rem]">
+          {actionBanner ? (
+            <p
+              role="status"
+              className="truncate text-xs font-semibold text-[var(--badge-info-fg)]"
+            >
+              {actionBanner}
+            </p>
+          ) : liveError ? (
+            <p
+              role="alert"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--badge-warn-fg)]"
+            >
+              <WarningCircle size={14} weight="duotone" aria-hidden="true" className="shrink-0" />
+              <span>{liveError}</span>
+            </p>
+          ) : null}
+        </div>
 
-                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                  <CopyButton
-                    value={rec.value}
-                    label={t("copyValueAria", { type: rec.type, fqdn: rec.fqdn })}
-                  />
+        <div className="min-h-[19rem]">
+          {!hasLoadedLiveOnce && liveLoading ? (
+            <div aria-busy="true" aria-label={t("loadingLive")} className="space-y-2">
+              {[0, 1, 2].map((idx) => (
+                <Card
+                  key={idx}
+                  className="flex h-[6rem] items-center justify-between gap-4 px-5 py-3.5"
+                >
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-5 w-14 rounded-full" />
+                      <Skeleton className="h-4 w-48 max-w-full" />
+                    </div>
+                    <Skeleton className="h-3.5 w-72 max-w-full" />
+                  </div>
+                  <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                    <Skeleton className="h-8 w-24 rounded-md" />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : filteredLiveRecords.length === 0 ? (
+            <Card className="flex min-h-[10rem] flex-col items-start justify-center gap-3 px-5 py-6 text-xs sm:text-sm text-[var(--text-muted)]">
+              <p>{hasActiveFilters ? t("noMatchDesc") : t("emptyLiveRecords")}</p>
+              {hasActiveFilters ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setQuery("");
+                    setDomainFilter("all");
+                    setStatusFilter("all");
+                  }}
+                >
+                  {t("showAllButton")}
+                </Button>
+              ) : null}
+            </Card>
+          ) : (
+            <>
+              <ul role="list" className="space-y-2">
+                {displayedLiveRecords.map((rec, i) => (
+                  <li
+                    key={`${rec.domain}-${rec.id ?? rec.host}-${rec.type}-${i}`}
+                    className={cn(
+                      "bento-card bento-card-interactive flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between",
+                      i >= 8 && "deferred-record-row",
+                    )}
+                  >
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="info" className="font-mono-code min-w-[3.75rem] justify-center">
+                          {rec.type}
+                        </Badge>
+                        <span className="font-mono-code truncate text-sm font-semibold text-[var(--text-primary)]">
+                          {rec.fqdn}
+                        </span>
+                        {rec.protected ? (
+                          <Badge variant="neutral">
+                            <ShieldCheck size={11} weight="fill" aria-hidden="true" />
+                            <span>{t("protectedBadge")}</span>
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <code className="font-mono-code block truncate text-xs text-[var(--text-muted)]">
+                        {rec.value} · TTL {rec.ttl}s
+                      </code>
+                      <p className="font-mono-code min-h-[1.1rem] truncate text-xs font-medium text-[var(--badge-live-fg)]">
+                        {dohResults[rec.fqdn] ?? ""}
+                      </p>
+                    </div>
+
+                    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                      <CopyButton
+                        value={rec.value}
+                        label={t("copyValueAria", { type: rec.type, fqdn: rec.fqdn })}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => checkLiveDoh(rec.fqdn, rec.type)}
+                        className="min-w-[6.75rem]"
+                      >
+                        <Broadcast size={14} weight="duotone" aria-hidden="true" />
+                        <span>{t("checkDoh")}</span>
+                      </Button>
+                      {rec.canDelete ? (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onMouseEnter={preloadDeleteDialog}
+                          onFocus={preloadDeleteDialog}
+                          onClick={() => requestDeleteRecord(rec)}
+                          className="min-w-[4.75rem]"
+                        >
+                          <Trash size={14} weight="duotone" aria-hidden="true" />
+                          <span>{tCommon("delete")}</span>
+                        </Button>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {remainingLiveCount > 0 ? (
+                <div ref={loadMoreRef} className="flex justify-center pt-3">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => checkLiveDoh(rec.fqdn, rec.type)}
+                    onClick={() => setVisibleLiveCount((prev) => prev + LIVE_PAGE_SIZE)}
                   >
-                    <Broadcast size={14} weight="duotone" aria-hidden="true" />
-                    <span>{t("checkDoh")}</span>
+                    {t("loadMoreLive", { remaining: remainingLiveCount })}
                   </Button>
-                  {rec.canDelete ? (
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* Section 2: Git Registry Entries (Decoupled from liveRecords so height NEVER collapses 200px) */}
+      <section aria-labelledby="git-registry-heading" className="space-y-3">
+        <h2
+          id="git-registry-heading"
+          className="font-editorial text-xl font-semibold text-[var(--text-primary)]"
+        >
+          {t("trackedHeading")}
+        </h2>
+
+        {filteredGitEntries.length === 0 ? (
+          <Card className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-xs sm:text-sm text-[var(--text-muted)]">
+            <span>
+              {entries.length === 0 ? t("noGitFilesLiveBelow") : t("noMatchDesc")}
+            </span>
+            {hasActiveFilters && entries.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setQuery("");
+                  setDomainFilter("all");
+                  setStatusFilter("all");
+                }}
+              >
+                {t("showAllButton")}
+              </Button>
+            ) : (
+              <Button asChild variant="outline" size="sm" className="shrink-0">
+                <Link href={activeClaimHref}>
+                  <Plus size={14} weight="bold" aria-hidden="true" />
+                  <span>{t("emptyClaimCta")}</span>
+                </Link>
+              </Button>
+            )}
+          </Card>
+        ) : (
+          <ul role="list" className="space-y-2.5">
+            {filteredGitEntries.map((entry, idx) => {
+              const firstType = entry.records[0]?.type ?? "CNAME";
+              return (
+                <li
+                  key={entry.fqdn}
+                  className={cn(
+                    "bento-card bento-card-interactive flex flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between",
+                    idx >= 8 && "deferred-record-row",
+                  )}
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <a
+                        href={`https://${entry.fqdn}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono-code text-sm font-bold text-[var(--text-primary)] underline decoration-[var(--border-strong)] underline-offset-4 hover:text-[var(--accent-terracotta)]"
+                      >
+                        {entry.fqdn}
+                      </a>
+                      <StatusBadge status={entry.health.status} reason={entry.health.reason} />
+                    </div>
+                    <p className="text-xs text-[var(--text-muted)]">{entry.description}</p>
+                    <p className="font-mono-code min-h-[1.1rem] truncate text-xs font-medium text-[var(--badge-live-fg)]">
+                      {dohResults[entry.fqdn] ?? ""}
+                    </p>
+                  </div>
+
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <a
+                      href={entry.owner.profileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-paper)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--border-strong)]"
+                    >
+                      <img
+                        src={entry.owner.avatarUrl}
+                        alt=""
+                        width={16}
+                        height={16}
+                        loading="lazy"
+                        decoding="async"
+                        className="rounded-full"
+                      />
+                      <span>@{entry.owner.github}</span>
+                    </a>
+
+                    <ul role="list" className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
+                      {entry.records.map((rec, recIdx) => {
+                        const targetHost =
+                          rec.label === entry.label
+                            ? entry.fqdn
+                            : `${rec.label}.${entry.rootDomain}`;
+                        return (
+                          <li
+                            key={`${rec.label}-${rec.type}-${recIdx}`}
+                            className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-paper)] px-2.5 py-1"
+                          >
+                            <Badge variant="info" className="font-mono-code shrink-0">
+                              {rec.type}
+                            </Badge>
+                            {rec.label !== entry.label ? (
+                              <span className="font-mono-code shrink-0 text-xs text-[var(--text-muted)]">
+                                {rec.label}
+                              </span>
+                            ) : null}
+                            <code className="font-mono-code truncate text-xs text-[var(--text-primary)]">
+                              {rec.value}
+                            </code>
+                            <CopyButton
+                              value={rec.value}
+                              label={t("copyTargetAria", {
+                                type: rec.type,
+                                fqdn: targetHost,
+                              })}
+                            />
+                          </li>
+                        );
+                      })}
+                    </ul>
+
                     <Button
                       type="button"
-                      variant="destructive"
+                      variant="outline"
                       size="sm"
-                      onClick={() => requestDeleteRecord(rec)}
+                      onClick={() => checkLiveDoh(entry.fqdn, firstType)}
+                      className="min-w-[6.75rem]"
                     >
-                      <Trash size={14} weight="duotone" aria-hidden="true" />
-                      <span>{tCommon("delete")}</span>
+                      <Broadcast size={14} weight="duotone" aria-hidden="true" />
+                      <span>{t("checkDoh")}</span>
                     </Button>
-                  ) : null}
-                </div>
-              </li>
-            ))}
+
+                    <Button asChild variant="outline" size="sm">
+                      <a
+                        href={entry.editUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={t("editAriaLabel", { fqdn: entry.fqdn })}
+                      >
+                        <PencilSimple size={14} weight="duotone" aria-hidden="true" />
+                        <span>{tCommon("edit")}</span>
+                      </a>
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
 
-      {/* Native <dialog> Confirmation Modal for Destructive DNS Delete */}
-      <dialog
-        ref={deleteDialogRef}
-        id="confirm-delete-dialog"
-        aria-labelledby="delete-dialog-title"
-        className="editorial-modal"
-        onClose={() => {
-          if (deleteDialogRef.current) deleteDialogRef.current.returnValue = "";
-          setPendingDelete(null);
-          setConfirmReservedDelete(false);
-        }}
-      >
-        <div className="flex items-center gap-2 border-b border-[var(--badge-dead-border)] bg-[var(--badge-dead-bg)] px-5 py-3.5">
-          <Trash size={16} weight="duotone" aria-hidden="true" className="text-[var(--badge-dead-fg)]" />
-          <h2 id="delete-dialog-title" className="text-sm font-semibold text-[var(--badge-dead-fg)]">
-            {t("deleteDialogTitle")}
-          </h2>
-        </div>
-
-        <div className="space-y-4 p-5 text-sm">
-          {pendingDelete ? (
-            <p className="leading-relaxed text-[var(--text-secondary)]">
-              {t("deleteDialogBody", {
-                type: pendingDelete.type,
-                fqdn: pendingDelete.fqdn,
-                value: pendingDelete.value,
-                domain: pendingDelete.domain,
-              })}
-            </p>
-          ) : null}
-
-          {pendingDelete?.reserved ? (
-            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--badge-warn-border)] bg-[var(--badge-warn-bg)] p-3 text-xs font-medium text-[var(--badge-warn-fg)]">
-              <input
-                type="checkbox"
-                checked={confirmReservedDelete}
-                onChange={(e) => setConfirmReservedDelete(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0"
-              />
-              <span>{t("deleteReservedConfirm")}</span>
-            </label>
-          ) : null}
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              autoFocus
-              onClick={() => deleteDialogRef.current?.close("cancel")}
-            >
-              {tCommon("cancel")}
-            </Button>
-            <Button
-              type="button"
-              variant="destructiveSolid"
-              disabled={deleting || (Boolean(pendingDelete?.reserved) && !confirmReservedDelete)}
-              onClick={() => void executeConfirmedDelete()}
-            >
-              {deleting ? tCommon("deleting") : t("confirmDeleteAction")}
-            </Button>
-          </div>
-        </div>
-      </dialog>
+      {/* Lazy-Loaded Native <dialog> Confirmation Modal */}
+      {deleteDialogMounted ? (
+        <LazyDeleteRecordDialog
+          record={pendingDelete}
+          deleting={deleting}
+          onConfirm={executeConfirmedDelete}
+          onClosed={() => setPendingDelete(null)}
+        />
+      ) : null}
     </div>
   );
 }

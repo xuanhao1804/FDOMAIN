@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowUpRight,
   Broadcast,
   CheckCircle,
   CloudCheck,
@@ -11,8 +10,9 @@ import {
   Plus,
   WarningCircle,
 } from "@phosphor-icons/react";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   buildPreviewDnsRows,
   isReservedSubdomainLabel,
@@ -20,7 +20,6 @@ import {
   isValidIpv4,
   isValidSubdomainLabel,
   matchesUnmanagedRule,
-  normalizeExtraPrefix,
   type SupportedRecordType,
 } from "@/lib/dns-rules";
 import type { SiteRootDomainMeta, SiteUnmanagedRule } from "@/lib/registry";
@@ -30,6 +29,24 @@ import { CopyButton } from "./copy-button";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { Skeleton } from "./ui/skeleton";
+
+const importGitOpsPanel = () =>
+  import("./gitops-pr-panel").then((mod) => mod.GitOpsPrPanel);
+
+const LazyGitOpsPrPanel = dynamic(importGitOpsPanel, {
+  ssr: false,
+  loading: () => (
+    <div className="mt-4 space-y-3 border-t border-[var(--border-color)] pt-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Skeleton className="h-14 w-full" />
+        <Skeleton className="h-14 w-full" />
+      </div>
+      <Skeleton className="h-28 w-full rounded-lg" />
+      <Skeleton className="h-9 w-full rounded-md" />
+    </div>
+  ),
+});
 
 interface ClaimBuilderProps {
   rootDomains: SiteRootDomainMeta[];
@@ -86,7 +103,8 @@ export function ClaimBuilder({
   const t = useTranslations("claim");
   const tDomains = useTranslations("domains");
   const tCommon = useTranslations("common");
-  const { authenticated, configured, capabilities, openLoginModal } = useAdminSession();
+  const { authenticated, configured, capabilities, openLoginModal, preloadLoginModal } =
+    useAdminSession();
 
   const [selectedDomain, setSelectedDomain] = useState(initialDomain);
   const [subdomainLabel, setSubdomainLabel] = useState("my-app");
@@ -103,6 +121,7 @@ export function ClaimBuilder({
   const [extraTxt, setExtraTxt] = useState("");
   const [allowReserved, setAllowReserved] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [gitOpsOpen, setGitOpsOpen] = useState(false);
 
   const [applying, setApplying] = useState(false);
   const [applyFeedback, setApplyFeedback] = useState<{
@@ -120,6 +139,10 @@ export function ClaimBuilder({
 
   const labelInputRef = useRef<HTMLInputElement>(null);
   const targetInputRef = useRef<HTMLInputElement>(null);
+
+  const preloadGitOpsPanel = useCallback(() => {
+    void importGitOpsPanel();
+  }, []);
 
   const activeDomainMeta =
     rootDomains.find((d) => d.domain.toLowerCase() === selectedDomain.toLowerCase()) ??
@@ -258,27 +281,7 @@ export function ClaimBuilder({
     .map((r) => `Host: ${r.host} | Type: ${r.type} | Value: ${r.value} | TTL: ${r.ttl}`)
     .join("\n");
 
-  const cleanUser = githubUser.trim() || "your-github-username";
   const cleanTarget = trimmedTarget || PRESET_DEFAULTS[preset].target;
-  const cleanDesc = description.trim() || `Subdomain ${fqdn}`;
-  const gitPayload: Record<string, unknown> = {
-    owner: { github: cleanUser },
-    description: cleanDesc,
-    records: recordType === "A" ? { A: [cleanTarget] } : { CNAME: cleanTarget },
-  };
-  if (vercelVerify.trim()) {
-    gitPayload.vercelVerify = [vercelVerify.trim()];
-  }
-  const normalizedExtra = extraName ? normalizeExtraPrefix(extraName) : null;
-  if (preset !== "vercel" && normalizedExtra && extraTxt.trim()) {
-    gitPayload.extra = { [normalizedExtra]: { TXT: [extraTxt.trim()] } };
-  }
-  const jsonOutput = `${JSON.stringify(gitPayload, null, 2)}\n`;
-  const gitRelativePath =
-    activeDomainMeta.domain.toLowerCase() === defaultRootDomain.toLowerCase()
-      ? `${cleanLabel}.json`
-      : `${activeDomainMeta.domain}/${cleanLabel}.json`;
-  const githubCreateUrl = `https://github.com/${repository}/new/main/domains?filename=${encodeURIComponent(gitRelativePath)}&value=${encodeURIComponent(jsonOutput)}`;
 
   async function handleCreateLiveDns(e: FormEvent) {
     e.preventDefault();
@@ -409,12 +412,12 @@ export function ClaimBuilder({
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-        {/* Left: Form Studio Card */}
+        {/* Left: Form Studio Card (isolated containment + fully reserved geometry slots) */}
         <form
           onSubmit={handleCreateLiveDns}
           noValidate
           aria-labelledby="builder-form-title"
-          className="bento-card min-w-0 space-y-5 p-6"
+          className="bento-card isolated-card min-w-0 space-y-5 p-6"
         >
           <h2 id="builder-form-title" className="text-base font-semibold text-[var(--text-primary)]">
             {t("step1Title")}
@@ -481,7 +484,9 @@ export function ClaimBuilder({
                           />
                         )}
                       </div>
-                      <Badge variant={pill.isAuto ? "live" : "warn"}>{pill.label}</Badge>
+                      <Badge variant={pill.isAuto ? "live" : "warn"} className="min-w-[9.5rem] justify-center">
+                        {pill.label}
+                      </Badge>
                     </div>
                     <span className="line-clamp-2 min-h-[2.25rem] text-xs leading-snug text-[var(--text-muted)]">
                       {localizedDomainNote(dom)}
@@ -586,7 +591,7 @@ export function ClaimBuilder({
                     key={key}
                     htmlFor={radioId}
                     className={cn(
-                      "choice-card inline-flex min-h-9 cursor-pointer items-center rounded-md border px-3 text-xs font-semibold transition-colors",
+                      "choice-card inline-flex min-h-9 min-w-[5.25rem] cursor-pointer items-center justify-center rounded-md border px-3 text-xs font-semibold transition-colors",
                       active
                         ? "border-[var(--btn-primary-bg)] bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]"
                         : "border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]",
@@ -606,12 +611,12 @@ export function ClaimBuilder({
                 );
               })}
             </div>
-            <p className="min-h-[2.25rem] text-xs text-[var(--text-muted)] sm:min-h-[1.25rem]">
+            <p className="min-h-[2.25rem] text-xs text-[var(--text-muted)]">
               {t(PRESET_DEFAULTS[preset].hintKey)}
             </p>
           </fieldset>
 
-          {/* Uniform 2-Column Field Grid Across ALL Presets */}
+          {/* Uniform 2-Column Field Grid with symmetric 3-line error/hint slots (0px shift!) */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-1.5">
               <label
@@ -644,7 +649,7 @@ export function ClaimBuilder({
                     : "border-[var(--border-color)] hover:border-[var(--border-strong)]",
                 )}
               />
-              <div className="min-h-[1.75rem] text-xs">
+              <div className="min-h-[3.25rem] text-xs leading-snug">
                 {showTargetError && targetError ? (
                   <p id="claim-target-error" className="font-medium text-[var(--badge-dead-fg)]">
                     {tCommon("errorPrefix")} {targetError}
@@ -680,7 +685,7 @@ export function ClaimBuilder({
                 spellCheck={false}
                 className="font-mono-code min-h-10 min-w-0 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] focus-visible:border-[var(--focus-ring)] sm:text-sm"
               />
-              <div className="flex min-h-[1.75rem] items-center text-[11px] text-[var(--text-muted)]">
+              <div className="flex min-h-[3.25rem] items-start pt-0.5 text-[11px] text-[var(--text-muted)]">
                 {preset === "vercel" ? (
                   <span className="truncate">
                     {t("verifyVercelHint", { domain: activeDomainMeta.domain })}
@@ -705,7 +710,7 @@ export function ClaimBuilder({
             </div>
           </div>
 
-          {/* Stable Footer Slot (identical footprint across Auto & Namecheap domains in both vi & en) */}
+          {/* Stable Footer Slot (identical footprint across Auto & Namecheap + reserved feedback area) */}
           <div className="space-y-3 border-t border-[var(--border-color)] pt-4">
             <div className="flex min-h-[7.25rem] flex-col justify-between gap-2.5 sm:min-h-[6rem]">
               {isManualOnly ? (
@@ -750,7 +755,14 @@ export function ClaimBuilder({
                       </span>
                     </Button>
                   ) : (
-                    <Button type="button" size="lg" onClick={openLoginModal} className="w-full">
+                    <Button
+                      type="button"
+                      size="lg"
+                      onMouseEnter={preloadLoginModal}
+                      onFocus={preloadLoginModal}
+                      onClick={openLoginModal}
+                      className="w-full"
+                    >
                       <LockSimpleOpen size={15} weight="bold" aria-hidden="true" />
                       <span>
                         {configured ? t("unlockToApplyAction") : t("viewEnvSetupAction")}
@@ -761,31 +773,34 @@ export function ClaimBuilder({
               )}
             </div>
 
-            {applyFeedback ? (
-              <div
-                role="status"
-                aria-live="polite"
-                className={cn(
-                  "flex items-start gap-2 rounded-lg border p-3 text-xs font-medium",
-                  applyFeedback.kind === "success"
-                    ? "border-[var(--badge-live-border)] bg-[var(--badge-live-bg)] text-[var(--badge-live-fg)]"
-                    : "border-[var(--badge-dead-border)] bg-[var(--badge-dead-bg)] text-[var(--badge-dead-fg)]",
-                )}
-              >
-                {applyFeedback.kind === "success" ? (
-                  <CheckCircle size={15} weight="fill" aria-hidden="true" className="mt-0.5 shrink-0" />
-                ) : (
-                  <WarningCircle size={15} weight="fill" aria-hidden="true" className="mt-0.5 shrink-0" />
-                )}
-                <span>{applyFeedback.text}</span>
-              </div>
-            ) : null}
+            {/* Reserved feedback slot prevents vertical jump on submit response */}
+            <div className="min-h-[3rem]">
+              {applyFeedback ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className={cn(
+                    "flex items-start gap-2 rounded-lg border p-3 text-xs font-medium",
+                    applyFeedback.kind === "success"
+                      ? "border-[var(--badge-live-border)] bg-[var(--badge-live-bg)] text-[var(--badge-live-fg)]"
+                      : "border-[var(--badge-dead-border)] bg-[var(--badge-dead-bg)] text-[var(--badge-dead-fg)]",
+                  )}
+                >
+                  {applyFeedback.kind === "success" ? (
+                    <CheckCircle size={15} weight="fill" aria-hidden="true" className="mt-0.5 shrink-0" />
+                  ) : (
+                    <WarningCircle size={15} weight="fill" aria-hidden="true" className="mt-0.5 shrink-0" />
+                  )}
+                  <span className="break-words">{applyFeedback.text}</span>
+                </div>
+              ) : null}
+            </div>
           </div>
         </form>
 
-        {/* Right: Faux-OS Editorial DNS Preview Window + Live Verification + GitOps Accordion */}
+        {/* Right: Faux-OS Editorial DNS Preview Window + Live Verification + Lazy GitOps Accordion */}
         <div className="min-w-0 space-y-4">
-          <Card className="min-w-0 overflow-hidden">
+          <Card className="isolated-card min-w-0 overflow-hidden">
             {/* Faux-OS Minimal Window Chrome Bar */}
             <div className="flex items-center justify-between gap-2 border-b border-[var(--border-color)] bg-[var(--bg-paper)] px-4 py-2.5">
               <div className="flex min-w-0 items-center gap-3">
@@ -819,7 +834,7 @@ export function ClaimBuilder({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <Badge variant="info" className="font-mono-code">
+                        <Badge variant="info" className="font-mono-code min-w-[3.75rem] justify-center">
                           {row.type}
                         </Badge>
                         <span className="text-xs font-semibold text-[var(--text-primary)]">
@@ -884,7 +899,7 @@ export function ClaimBuilder({
                   </span>
                 </div>
 
-                <div className="min-h-[2.25rem] sm:min-h-[1.25rem]">
+                <div className="min-h-[2.25rem]">
                   {dohResult ? (
                     <p
                       role="status"
@@ -914,73 +929,44 @@ export function ClaimBuilder({
             </div>
           </Card>
 
-          {/* Editorial Hairline Accordion for Optional GitOps PR Mode */}
-          <details className="editorial-accordion bento-card min-w-0 p-5">
-            <summary className="flex cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-[var(--text-primary)]">
+          {/* Lazy-Loaded Optional GitOps PR Accordion (only fetches chunk when expanded) */}
+          <details
+            className="editorial-accordion bento-card isolated-card min-w-0 p-5"
+            onToggle={(e) => setGitOpsOpen((e.currentTarget as HTMLDetailsElement).open)}
+          >
+            <summary
+              onMouseEnter={preloadGitOpsPanel}
+              onFocus={preloadGitOpsPanel}
+              className="flex cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-[var(--text-primary)]"
+            >
               <span className="inline-flex items-center gap-2">
                 <Code size={16} weight="duotone" aria-hidden="true" className="text-[var(--text-muted)]" />
                 <span>{t("gitopsSummary")}</span>
               </span>
-              <span className="font-mono-code text-xs text-[var(--text-muted)]">+</span>
+              <span className="font-mono-code text-xs text-[var(--text-muted)]">
+                {gitOpsOpen ? "−" : "+"}
+              </span>
             </summary>
 
-            <div className="mt-4 space-y-3 border-t border-[var(--border-color)] pt-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex min-w-0 flex-col gap-1">
-                  <label
-                    htmlFor="claim-github"
-                    className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]"
-                  >
-                    {t("githubUsernameLabel")}
-                  </label>
-                  <input
-                    id="claim-github"
-                    type="text"
-                    value={githubUser}
-                    onChange={(e) => setGithubUser(e.target.value)}
-                    placeholder="alice-gh"
-                    autoComplete="username"
-                    autoCorrect="off"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    className="font-mono-code min-h-9 min-w-0 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 text-sm text-[var(--text-primary)]"
-                  />
-                </div>
-                <div className="flex min-w-0 flex-col gap-1">
-                  <label
-                    htmlFor="claim-desc"
-                    className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]"
-                  >
-                    {t("shortDescLabel")}
-                  </label>
-                  <input
-                    id="claim-desc"
-                    type="text"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="min-h-9 min-w-0 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 text-sm text-[var(--text-primary)]"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono-code truncate text-xs text-[var(--text-muted)]">
-                  domains/{gitRelativePath}
-                </span>
-                <CopyButton value={jsonOutput} label={t("copyJsonAria")} showText />
-              </div>
-
-              <pre className="font-mono-code overflow-x-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] p-3 text-xs leading-relaxed text-[var(--text-primary)]">
-                <code>{jsonOutput}</code>
-              </pre>
-
-              <Button asChild variant="outline" className="w-full">
-                <a href={githubCreateUrl} target="_blank" rel="noopener noreferrer">
-                  <span>{t("openGithubPr")}</span>
-                  <ArrowUpRight size={14} weight="bold" aria-hidden="true" />
-                </a>
-              </Button>
-            </div>
+            {gitOpsOpen ? (
+              <LazyGitOpsPrPanel
+                repository={repository}
+                activeDomain={activeDomainMeta.domain}
+                defaultRootDomain={defaultRootDomain}
+                cleanLabel={cleanLabel}
+                fqdn={fqdn}
+                recordType={recordType}
+                cleanTarget={cleanTarget}
+                isVercelPreset={preset === "vercel"}
+                vercelVerify={vercelVerify}
+                extraName={extraName}
+                extraTxt={extraTxt}
+                githubUser={githubUser}
+                description={description}
+                onGithubUserChange={setGithubUser}
+                onDescriptionChange={setDescription}
+              />
+            ) : null}
           </details>
         </div>
       </div>

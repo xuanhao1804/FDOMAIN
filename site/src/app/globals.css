@@ -431,8 +431,33 @@ body {
   background-color: var(--bg-surface);
   border-color: var(--border-color);
   color: var(--text-primary);
-  font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+/* CSS Containment for isolated interactive cards (prevents page-wide reflow) */
+.isolated-card {
+  contain: layout style;
+}
+
+/* Deferred off-screen list rows (ONLY applied to below-the-fold items, index >= 8) */
+.deferred-record-row {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 6rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton-shimmer {
+    animation: editorial-skeleton-pulse 1.5s ease-in-out infinite;
+  }
+}
+
+@keyframes editorial-skeleton-pulse {
+  0%, 100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 /* Physical Keystroke Micro-UI */

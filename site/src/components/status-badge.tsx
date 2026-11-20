@@ -16,7 +16,7 @@ export function StatusBadge({
 
   if (status === "live") {
     return (
-      <Badge variant="live" title={reason}>
+      <Badge variant="live" title={reason} className="min-w-[6.25rem] justify-center">
         <CheckCircle size={12} weight="fill" aria-hidden="true" />
         <span>{t("live")}</span>
       </Badge>
@@ -24,7 +24,7 @@ export function StatusBadge({
   }
   if (status === "warn") {
     return (
-      <Badge variant="warn" title={reason}>
+      <Badge variant="warn" title={reason} className="min-w-[6.25rem] justify-center">
         <Warning size={12} weight="fill" aria-hidden="true" />
         <span>{t("warn")}</span>
       </Badge>
@@ -32,14 +32,14 @@ export function StatusBadge({
   }
   if (status === "dead") {
     return (
-      <Badge variant="dead" title={reason}>
+      <Badge variant="dead" title={reason} className="min-w-[6.25rem] justify-center">
         <XCircle size={12} weight="fill" aria-hidden="true" />
         <span>{t("dead")}</span>
       </Badge>
     );
   }
   return (
-    <Badge variant="neutral" title={reason}>
+    <Badge variant="neutral" title={reason} className="min-w-[6.25rem] justify-center">
       <Clock size={12} weight="bold" aria-hidden="true" />
       <span>{t("unknown")}</span>
     </Badge>
