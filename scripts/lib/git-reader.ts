@@ -70,7 +70,7 @@ export function readDomainFilesAtRef(
     const trimmed = fullPath.trim();
     if (!trimmed.startsWith("domains/") || !trimmed.endsWith(".json")) continue;
     const filename = trimmed.slice("domains/".length);
-    if (filename.includes("/")) continue;
+    if (filename.split("/").length > 2) continue;
     const raw = tryGitShow(ref, trimmed, cwd);
     if (raw !== undefined) {
       out.push({ filename, raw });

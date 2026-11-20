@@ -3,13 +3,13 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const nextConfig: NextConfig = {
-  output: "export",
-  trailingSlash: true,
   outputFileTracingRoot: dirname(fileURLToPath(import.meta.url)),
+  outputFileTracingIncludes: {
+    "/**": ["./src/data/registry.json", "../config.json"],
+  },
   images: {
     unoptimized: true,
   },
-  basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",
 };
 
 export default nextConfig;

@@ -2,10 +2,10 @@ import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { loadConfig, loadDomainEntries } from "./build-dns-manifest.js";
 import { isMainModule } from "./lib/cli-utils.js";
-import { compileRegistry } from "./lib/compiler.js";
+import { compileMultiDomainRegistry } from "./lib/compiler.js";
 import { getChangedFilesBetweenRefs, readDomainFilesAtRef } from "./lib/git-reader.js";
 import { validatePullRequest } from "./lib/pr-validator.js";
-import { filenameToLabel, parseSubdomainFile } from "./lib/schema.js";
+import { parseDomainRelativePath, parseSubdomainFile } from "./lib/schema.js";
 import type { SubdomainEntry } from "./lib/types.js";
 
 function getFlag(args: string[], name: string): string | undefined {
@@ -90,14 +90,15 @@ export function runValidateCli(argv = process.argv.slice(2)): number {
 
     if (result.ok && emitManifestPath) {
       const headEntries: SubdomainEntry[] = headDomainFiles.map((f) => {
-        const label = filenameToLabel(f.filename);
+        const parsedPath = parseDomainRelativePath(f.filename, config.rootDomain);
         return {
-          label,
-          filename: f.filename,
-          data: parseSubdomainFile(JSON.parse(f.raw), label, config.rootDomain),
+          label: parsedPath.label,
+          rootDomain: parsedPath.rootDomain,
+          filename: parsedPath.filename,
+          data: parseSubdomainFile(JSON.parse(f.raw), parsedPath.label, parsedPath.rootDomain),
         };
       });
-      const compiled = compileRegistry(config, headEntries);
+      const compiled = compileMultiDomainRegistry(config, headEntries);
       const absOut = resolve(emitManifestPath);
       mkdirSync(dirname(absOut), { recursive: true });
       writeFileSync(absOut, `${JSON.stringify(compiled.manifest, null, 2)}\n`, "utf8");
@@ -121,7 +122,7 @@ export function runValidateCli(argv = process.argv.slice(2)): number {
   }
 
   const entries = loadDomainEntries(config.rootDomain);
-  const compiled = compileRegistry(config, entries);
+  const compiled = compileMultiDomainRegistry(config, entries);
 
   for (const w of compiled.warnings) {
     console.warn(`WARN: ${w}`);
@@ -134,7 +135,7 @@ export function runValidateCli(argv = process.argv.slice(2)): number {
   }
 
   console.log(
-    `Validated ${entries.length} subdomain file(s), ${compiled.manifest.records.length}/${config.limits.maxTotalRecords} DNS records.`,
+    `Validated ${entries.length} subdomain file(s), ${compiled.totalRecords}/${config.limits.maxTotalRecords} DNS records.`,
   );
   return 0;
 }

@@ -1,5 +1,19 @@
 {
   "rootDomain": "harrylee.dev",
+  "rootDomains": [
+    {
+      "domain": "harrylee.dev",
+      "registrar": "Name.com",
+      "dnsProvider": "namecom",
+      "note": "Primary dev domain managed via Name.com Core API"
+    },
+    {
+      "domain": "vinamuse.store",
+      "registrar": "Namecheap",
+      "dnsProvider": "namecheap-manual",
+      "note": "Namecheap BasicDNS (copy helper + live DoH check, or switch NS to Cloudflare)"
+    }
+  ],
   "repository": "xuanhao1804/FDOMAIN",
   "lookupSubdomain": "domains",
   "admins": ["xuanhao1804"],
@@ -38,7 +52,7 @@
     {
       "label": "_vercel",
       "types": "TXT",
-      "target": "vc-domain-verify=harrylee.dev,*"
+      "target": "vc-domain-verify=*"
     }
   ],
   "limits": {

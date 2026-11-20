@@ -1,5 +1,15 @@
-import { compileRegistry, expandEntryRecords, isAdmin, isReservedLabel, isTrusted } from "./compiler.js";
-import { filenameToLabel, parseSubdomainFile } from "./schema.js";
+import {
+  compileMultiDomainRegistry,
+  expandEntryRecords,
+  isAdmin,
+  isReservedLabel,
+  isTrusted,
+} from "./compiler.js";
+import {
+  getConfiguredRootDomains,
+  parseDomainRelativePath,
+  parseSubdomainFile,
+} from "./schema.js";
 import type {
   CompiledDnsRecord,
   RegistryConfig,
@@ -43,10 +53,10 @@ export interface PrValidationResult {
   dnsDiff: DnsRecordDiff;
 }
 
-const DOMAIN_FILE_PATH_REGEX = /^domains\/([^/]+\.json)$/;
+const DOMAIN_FILE_PATH_REGEX = /^domains\/((?:[^/]+\/)?[^/]+\.json)$/;
 
 function recordKey(rec: CompiledDnsRecord): string {
-  return `${rec.label}\0${rec.type}\0${rec.value}`;
+  return `${rec.rootDomain ?? ""}\0${rec.label}\0${rec.type}\0${rec.value}`;
 }
 
 export function diffDnsRecords(
@@ -70,6 +80,7 @@ export function diffDnsRecords(
   }
 
   const sortFn = (a: CompiledDnsRecord, b: CompiledDnsRecord) =>
+    (a.rootDomain ?? "").localeCompare(b.rootDomain ?? "") ||
     a.label.localeCompare(b.label) ||
     a.type.localeCompare(b.type) ||
     a.value.localeCompare(b.value);
@@ -82,13 +93,25 @@ export function diffDnsRecords(
 function tryParseDomainRaw(
   raw: string,
   filename: string,
-  rootDomain: string,
+  config: RegistryConfig,
 ): { entry?: SubdomainEntry; error?: string } {
+  let rootDomain: string;
   let label: string;
+  let normalizedFilename: string;
   try {
-    label = filenameToLabel(filename);
+    const parsedPath = parseDomainRelativePath(filename, config.rootDomain);
+    rootDomain = parsedPath.rootDomain;
+    label = parsedPath.label;
+    normalizedFilename = parsedPath.filename;
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
+  }
+
+  const allowed = new Set(getConfiguredRootDomains(config).map((d) => d.domain.toLowerCase()));
+  if (!allowed.has(rootDomain.toLowerCase())) {
+    return {
+      error: `Root domain "${rootDomain}" in "domains/${normalizedFilename}" is not listed in config.json rootDomains[].`,
+    };
   }
 
   let parsedJson: unknown;
@@ -96,16 +119,19 @@ function tryParseDomainRaw(
     parsedJson = JSON.parse(raw);
   } catch (err) {
     return {
-      error: `Invalid JSON in "domains/${filename}": ${err instanceof Error ? err.message : String(err)}`,
+      error: `Invalid JSON in "domains/${normalizedFilename}": ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 
   try {
     const data: SubdomainFile = parseSubdomainFile(parsedJson, label, rootDomain);
-    return { entry: { label, filename, data } };
+    const entry: SubdomainEntry = normalizedFilename.includes("/")
+      ? { label, rootDomain, filename: normalizedFilename, data }
+      : { label, filename: normalizedFilename, data };
+    return { entry };
   } catch (err) {
     return {
-      error: `Schema validation failed for "domains/${filename}": ${err instanceof Error ? err.message : String(err)}`,
+      error: `Schema validation failed for "domains/${normalizedFilename}": ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -130,7 +156,7 @@ export function validatePullRequest(input: PrValidationInput): PrValidationResul
       allDomainFilesOnly = false;
       if (!authorIsAdmin) {
         errors.push(
-          `Non-admin "${prAuthor}" cannot modify "${cf.path}". Only files directly inside "domains/*.json" may be changed.`,
+          `Non-admin "${prAuthor}" cannot modify "${cf.path}". Only files inside "domains/*.json" or "domains/<rootDomain>/*.json" may be changed.`,
         );
       }
       continue;
@@ -139,7 +165,15 @@ export function validatePullRequest(input: PrValidationInput): PrValidationResul
     const filename = match[1];
     let label: string;
     try {
-      label = filenameToLabel(filename);
+      const parsedPath = parseDomainRelativePath(filename, config.rootDomain);
+      label = parsedPath.label;
+      const allowed = new Set(getConfiguredRootDomains(config).map((d) => d.domain.toLowerCase()));
+      if (!allowed.has(parsedPath.rootDomain.toLowerCase())) {
+        errors.push(
+          `Root domain "${parsedPath.rootDomain}" in "${cf.path}" is not configured in config.json.`,
+        );
+        continue;
+      }
     } catch (err) {
       errors.push(err instanceof Error ? err.message : String(err));
       continue;
@@ -161,7 +195,7 @@ export function validatePullRequest(input: PrValidationInput): PrValidationResul
       if (cf.oldRaw === undefined) {
         errors.push(`Missing base file contents for "${cf.path}".`);
       } else {
-        const parsedOld = tryParseDomainRaw(cf.oldRaw, filename, config.rootDomain);
+        const parsedOld = tryParseDomainRaw(cf.oldRaw, filename, config);
         if (parsedOld.error && !authorIsAdmin) {
           errors.push(parsedOld.error);
         } else if (parsedOld.entry) {
@@ -179,7 +213,7 @@ export function validatePullRequest(input: PrValidationInput): PrValidationResul
       if (cf.newRaw === undefined) {
         errors.push(`Missing head file contents for "${cf.path}".`);
       } else {
-        const parsedNew = tryParseDomainRaw(cf.newRaw, filename, config.rootDomain);
+        const parsedNew = tryParseDomainRaw(cf.newRaw, filename, config);
         if (parsedNew.error) {
           errors.push(parsedNew.error);
         } else if (parsedNew.entry) {
@@ -207,7 +241,7 @@ export function validatePullRequest(input: PrValidationInput): PrValidationResul
 
   const headEntries: SubdomainEntry[] = [];
   for (const file of headDomainFiles) {
-    const parsed = tryParseDomainRaw(file.raw, file.filename, config.rootDomain);
+    const parsed = tryParseDomainRaw(file.raw, file.filename, config);
     if (parsed.error) {
       if (!errors.includes(parsed.error)) {
         errors.push(parsed.error);
@@ -219,18 +253,23 @@ export function validatePullRequest(input: PrValidationInput): PrValidationResul
 
   const baseEntries: SubdomainEntry[] = [];
   for (const file of baseDomainFiles) {
-    const parsed = tryParseDomainRaw(file.raw, file.filename, config.rootDomain);
+    const parsed = tryParseDomainRaw(file.raw, file.filename, config);
     if (parsed.entry) {
       baseEntries.push(parsed.entry);
     }
   }
 
-  const compiledHead = compileRegistry(config, headEntries);
+  const compiledHead = compileMultiDomainRegistry(config, headEntries);
   errors.push(...compiledHead.errors);
   warnings.push(...compiledHead.warnings);
 
-  const baseRecords = baseEntries.flatMap(expandEntryRecords);
-  const dnsDiff = diffDnsRecords(baseRecords, compiledHead.manifest.records);
+  const tagRecordDomain = (entry: SubdomainEntry) =>
+    expandEntryRecords(entry).map((r) =>
+      entry.rootDomain ? { ...r, rootDomain: entry.rootDomain } : r,
+    );
+  const baseRecords = baseEntries.flatMap(tagRecordDomain);
+  const headRecords = headEntries.flatMap(tagRecordDomain);
+  const dnsDiff = diffDnsRecords(baseRecords, headRecords);
 
   const ok = errors.length === 0;
   let autoMergeEligible = false;
@@ -241,7 +280,7 @@ export function validatePullRequest(input: PrValidationInput): PrValidationResul
   } else if (!authorIsTrusted) {
     autoMergeReason = `Author "${prAuthor}" is not in trusted[] or admins[]; manual admin review required.`;
   } else if (!allDomainFilesOnly) {
-    autoMergeReason = "PR touches files outside domains/*.json; manual review required.";
+    autoMergeReason = "PR touches files outside domains/; manual review required.";
   } else if (touchesReservedLabel && !authorIsAdmin) {
     autoMergeReason = "PR touches a reserved label; manual admin review required.";
   } else {
@@ -257,7 +296,7 @@ export function validatePullRequest(input: PrValidationInput): PrValidationResul
     warnings,
     autoMergeEligible,
     autoMergeReason,
-    recordCount: compiledHead.manifest.records.length,
+    recordCount: compiledHead.totalRecords,
     maxRecords: config.limits.maxTotalRecords,
     dnsDiff,
   };

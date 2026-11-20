@@ -2,9 +2,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { loadConfig, loadDomainEntries } from "./build-dns-manifest.js";
 import { isMainModule } from "./lib/cli-utils.js";
-import { compileRegistry, expandEntryRecords } from "./lib/compiler.js";
+import { compileMultiDomainRegistry, expandEntryRecords } from "./lib/compiler.js";
+import { getConfiguredRootDomains } from "./lib/schema.js";
 import type { StatusReport, SubdomainHealth } from "./lib/status-check.js";
-import type { RegistryConfig, SubdomainEntry } from "./lib/types.js";
+import type { DnsProviderType, RegistryConfig, SubdomainEntry, UnmanagedRule } from "./lib/types.js";
 
 export interface SiteRecordRow {
   label: string;
@@ -12,9 +13,19 @@ export interface SiteRecordRow {
   value: string;
 }
 
+export interface SiteRootDomainMeta {
+  domain: string;
+  registrar: string;
+  dnsProvider: DnsProviderType;
+  note?: string;
+  gitRecordCount: number;
+}
+
 export interface SiteSubdomainItem {
   label: string;
+  rootDomain: string;
   fqdn: string;
+  dnsProvider: DnsProviderType;
   description: string;
   owner: {
     github: string;
@@ -33,10 +44,13 @@ export interface SiteSubdomainItem {
 
 export interface SiteRegistryPayload {
   rootDomain: string;
+  rootDomains: SiteRootDomainMeta[];
   repository: string;
   lookupSubdomain: string;
   generatedAt: string;
   statusCheckedAt: string | null;
+  reservedLabels: string[];
+  unmanaged: UnmanagedRule[];
   limits: {
     maxTotalRecords: number;
     warnAtRecords: number;
@@ -50,23 +64,41 @@ export function buildSitePayload(
   entries: SubdomainEntry[],
   statusReport: StatusReport | null,
 ): SiteRegistryPayload {
-  const compiled = compileRegistry(config, entries);
+  const compiled = compileMultiDomainRegistry(config, entries);
   if (compiled.errors.length > 0) {
     throw new Error(`Cannot export site data with invalid registry:\n- ${compiled.errors.join("\n- ")}`);
   }
 
+  const domainMetaList = getConfiguredRootDomains(config);
+  const providerByDomain = new Map(
+    domainMetaList.map((d) => [d.domain.toLowerCase(), d.dnsProvider]),
+  );
+
+  const rootDomains: SiteRootDomainMeta[] = domainMetaList.map((d) => ({
+    domain: d.domain,
+    registrar: d.registrar,
+    dnsProvider: d.dnsProvider,
+    ...(d.note ? { note: d.note } : {}),
+    gitRecordCount: compiled.byDomain.get(d.domain.toLowerCase())?.manifest.records.length ?? 0,
+  }));
+
   const siteEntries: SiteSubdomainItem[] = entries
     .slice()
-    .sort((a, b) => a.label.localeCompare(b.label))
+    .sort((a, b) => {
+      const da = (a.rootDomain ?? config.rootDomain).toLowerCase();
+      const db = (b.rootDomain ?? config.rootDomain).toLowerCase();
+      return da.localeCompare(db) || a.label.localeCompare(b.label);
+    })
     .map((entry) => {
-      const fqdn = `${entry.label}.${config.rootDomain}`;
+      const entryRootDomain = (entry.rootDomain ?? config.rootDomain).toLowerCase();
+      const fqdn = `${entry.label}.${entryRootDomain}`;
       const expanded = expandEntryRecords(entry).map((rec) => ({
         label: rec.label,
         type: rec.type,
         value: rec.value,
       }));
 
-      const healthEntry = statusReport?.entries[entry.label];
+      const healthEntry = statusReport?.entries[fqdn] ?? statusReport?.entries[entry.label];
       const health: SiteSubdomainItem["health"] = healthEntry
         ? {
             status: healthEntry.status,
@@ -78,10 +110,17 @@ export function buildSitePayload(
             reason: "Not checked yet",
           };
 
+      const encodedPath = entry.filename
+        .split("/")
+        .map((seg) => encodeURIComponent(seg))
+        .join("/");
+
       // Deliberately omit owner.contact so personal contact info is not published on the portal
       return {
         label: entry.label,
+        rootDomain: entryRootDomain,
         fqdn,
+        dnsProvider: providerByDomain.get(entryRootDomain) ?? "cloudflare-gitops",
         description: entry.data.description,
         owner: {
           github: entry.data.owner.github,
@@ -90,22 +129,25 @@ export function buildSitePayload(
         },
         records: expanded,
         health,
-        editUrl: `https://github.com/${config.repository}/edit/main/domains/${encodeURIComponent(entry.filename)}`,
-        fileUrl: `https://github.com/${config.repository}/blob/main/domains/${encodeURIComponent(entry.filename)}`,
+        editUrl: `https://github.com/${config.repository}/edit/main/domains/${encodedPath}`,
+        fileUrl: `https://github.com/${config.repository}/blob/main/domains/${encodedPath}`,
       };
     });
 
   return {
     rootDomain: config.rootDomain,
+    rootDomains,
     repository: config.repository,
     lookupSubdomain: config.lookupSubdomain,
     generatedAt: new Date().toISOString(),
     statusCheckedAt: statusReport?.generatedAt ?? null,
+    reservedLabels: config.reservedLabels,
+    unmanaged: config.unmanaged,
     limits: {
       maxTotalRecords: config.limits.maxTotalRecords,
       warnAtRecords: config.limits.warnAtRecords,
     },
-    totalDnsRecords: compiled.manifest.records.length,
+    totalDnsRecords: compiled.totalRecords,
     entries: siteEntries,
   };
 }

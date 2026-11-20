@@ -204,7 +204,7 @@ export async function runStatusCheckCli(argv = process.argv.slice(2)): Promise<n
   const generatedAt = new Date().toISOString();
 
   const results = await Promise.all(
-    entries.map((entry) => probeEntry(entry, config.rootDomain)),
+    entries.map((entry) => probeEntry(entry, entry.rootDomain ?? config.rootDomain)),
   );
 
   const report: StatusReport = {
@@ -214,7 +214,7 @@ export async function runStatusCheckCli(argv = process.argv.slice(2)): Promise<n
   };
 
   for (const item of results) {
-    report.entries[item.label] = item;
+    report.entries[item.fqdn] = item;
   }
 
   writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");

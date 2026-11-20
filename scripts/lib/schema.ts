@@ -1,6 +1,6 @@
 import { isIPv4, isIPv6 } from "node:net";
 import { z } from "zod";
-import type { RegistryConfig, SubdomainFile } from "./types.js";
+import type { RegistryConfig, RootDomainConfig, SubdomainFile } from "./types.js";
 
 export const FILENAME_REGEX =
   /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.json$/;
@@ -53,6 +53,52 @@ export function filenameToLabel(filename: string): string {
   return filename.slice(0, -".json".length);
 }
 
+/** Parse either `<label>.json` (default domain) or `<rootDomain>/<label>.json`. */
+export function parseDomainRelativePath(
+  relativeFilename: string,
+  defaultRootDomain: string,
+): { rootDomain: string; label: string; filename: string } {
+  const normalized = relativeFilename.replace(/\\/g, "/");
+  const slashIndex = normalized.indexOf("/");
+  if (slashIndex === -1) {
+    return {
+      rootDomain: defaultRootDomain.toLowerCase(),
+      label: filenameToLabel(normalized),
+      filename: normalized,
+    };
+  }
+
+  const domainPart = normalized.slice(0, slashIndex).toLowerCase();
+  const filePart = normalized.slice(slashIndex + 1);
+  if (filePart.includes("/") || !isValidHostnameTarget(domainPart)) {
+    throw new Error(
+      `Invalid domain file path "domains/${normalized}". Expected domains/<label>.json or domains/<rootDomain>/<label>.json.`,
+    );
+  }
+  return {
+    rootDomain: domainPart,
+    label: filenameToLabel(filePart),
+    filename: normalized,
+  };
+}
+
+export function getConfiguredRootDomains(config: RegistryConfig): RootDomainConfig[] {
+  if (config.rootDomains && config.rootDomains.length > 0) {
+    return config.rootDomains.map((item) => ({
+      ...item,
+      domain: item.domain.toLowerCase(),
+    }));
+  }
+  return [
+    {
+      domain: config.rootDomain.toLowerCase(),
+      registrar: "Cloudflare",
+      dnsProvider: "cloudflare-gitops",
+      note: "Default GitOps Cloudflare zone",
+    },
+  ];
+}
+
 const GithubUsernameSchema = z
   .string()
   .trim()
@@ -100,9 +146,26 @@ const ExtraRecordSchema = z.union([
   z.object({ TXT: z.array(TxtValueSchema).min(1) }).strict(),
 ]);
 
+const DnsProviderTypeSchema = z.enum([
+  "namecom",
+  "cloudflare-api",
+  "cloudflare-gitops",
+  "namecheap-manual",
+]);
+
+const RootDomainConfigSchema = z
+  .object({
+    domain: z.string().trim().toLowerCase().refine(isValidHostnameTarget, "Invalid rootDomains[].domain"),
+    registrar: z.string().trim().min(1).max(60),
+    dnsProvider: DnsProviderTypeSchema,
+    note: z.string().trim().max(200).optional(),
+  })
+  .strict();
+
 export const ConfigSchema = z
   .object({
     rootDomain: z.string().trim().refine(isValidHostnameTarget, "Invalid rootDomain"),
+    rootDomains: z.array(RootDomainConfigSchema).min(1).optional(),
     repository: z.string().trim().regex(/^[^/\s]+\/[^/\s]+$/, "Expected owner/repo"),
     lookupSubdomain: z.string().trim().regex(LABEL_REGEX),
     admins: z.array(GithubUsernameSchema).min(1),
@@ -128,7 +191,29 @@ export const ConfigSchema = z
         message: "warnAtRecords must be <= maxTotalRecords",
       }),
   })
-  .strict();
+  .strict()
+  .superRefine((cfg, ctx) => {
+    if (!cfg.rootDomains) return;
+    const seen = new Set<string>();
+    for (const item of cfg.rootDomains) {
+      const lower = item.domain.toLowerCase();
+      if (seen.has(lower)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["rootDomains"],
+          message: `Duplicate rootDomains entry "${item.domain}"`,
+        });
+      }
+      seen.add(lower);
+    }
+    if (!seen.has(cfg.rootDomain.toLowerCase())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["rootDomain"],
+        message: `rootDomain "${cfg.rootDomain}" must also appear in rootDomains[]`,
+      });
+    }
+  });
 
 export function createSubdomainSchema(label: string, rootDomain: string) {
   const expectedPrefix = `vc-domain-verify=${label}.${rootDomain},`;

@@ -50,7 +50,14 @@ jobs:
           npm run validate
           npm run dns:build
 
+      - name: Check whether any zone uses cloudflare-gitops
+        id: check-gitops
+        run: |
+          COUNT=$(node -e 'const m=require("./dist/dns-manifest.json"); console.log(Array.isArray(m.zones) ? m.zones.length : 1)')
+          echo "gitops_zones=$COUNT" >> "$GITHUB_OUTPUT"
+
       - name: Verify Cloudflare secret is configured
+        if: steps.check-gitops.outputs.gitops_zones != '0'
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
@@ -60,6 +67,7 @@ jobs:
           fi
 
       - name: Install DNSControl
+        if: steps.check-gitops.outputs.gitops_zones != '0'
         run: |
           TARBALL="dnscontrol_${DNSCONTROL_VERSION}_linux_amd64.tar.gz"
           BASE_URL="https://github.com/DNSControl/dnscontrol/releases/download/v${DNSCONTROL_VERSION}"
@@ -71,6 +79,7 @@ jobs:
           rm -f "${TARBALL}" checksums.txt
 
       - name: Preview DNS changes
+        if: steps.check-gitops.outputs.gitops_zones != '0'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
@@ -85,6 +94,7 @@ jobs:
 
       - name: Run drift & deletion guard
         id: guard
+        if: steps.check-gitops.outputs.gitops_zones != '0'
         env:
           FORCE_DEPLOY: ${{ inputs.force == true }}
         run: |
@@ -116,6 +126,7 @@ jobs:
             });
 
       - name: Push DNS changes to Cloudflare
+        if: steps.check-gitops.outputs.gitops_zones != '0'
         run: ./dnscontrol push --creds /tmp/creds.json
 
       - name: Cleanup credentials file

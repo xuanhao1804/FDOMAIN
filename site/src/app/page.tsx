@@ -2,14 +2,19 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
 import { loadSiteRegistryData } from "@/lib/registry";
 
-const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+function providerBadgeLabel(provider: string): string {
+  if (provider === "namecom") return "Name.com · Auto DNS";
+  if (provider === "cloudflare-api") return "Cloudflare · Auto DNS";
+  if (provider === "cloudflare-gitops") return "Cloudflare · GitOps";
+  return "Namecheap · Copy + Verify";
+}
 
 export default function OverviewPage() {
   const data = loadSiteRegistryData();
   const liveCount = data.entries.filter((e) => e.health.status === "live").length;
   const warnCount = data.entries.filter((e) => e.health.status === "warn").length;
   const deadCount = data.entries.filter((e) => e.health.status === "dead").length;
-  const previewEntries = data.entries.slice(0, 3);
+  const previewEntries = data.entries.slice(0, 4);
 
   return (
     <div className="reveal-block space-y-6">
@@ -28,7 +33,7 @@ export default function OverviewPage() {
                 color: "#24324a",
               }}
             >
-              DNS-as-Code Hub · *.{data.rootDomain}
+              Multi-Domain Control · {data.rootDomains.map((d) => d.domain).join(" · ")}
             </span>
 
             <h1 id="overview-hero-title" className="font-display text-3xl font-extrabold sm:text-4xl">
@@ -36,9 +41,9 @@ export default function OverviewPage() {
             </h1>
 
             <p className="mx-auto max-w-xl text-sm sm:text-base md:mx-0" style={{ color: "var(--text-muted)" }}>
-              Manage <span className="font-mono-code font-semibold">{data.rootDomain}</span>{" "}
-              subdomains via GitHub Pull Requests, sync DNS-only records to Cloudflare, and catch
-              dangling deployments before takeover.
+              Pick any of your available root domains, type a subdomain with instant suffix preview,
+              copy exact <span className="font-mono-code font-semibold">CNAME / A / TXT</span>{" "}
+              records, or create DNS live in one click.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-1 md:justify-start">
@@ -53,13 +58,73 @@ export default function OverviewPage() {
 
           <div className="shrink-0">
             <img
-              src={`${BASE_PATH}/images/chibi-courier.png`}
+              src="/images/chibi-courier.png"
               alt="Chibi domain courier waving beside a tiny cloud-pup mascot"
               width={160}
               height={265}
               className="h-44 w-auto select-none sm:h-52"
             />
           </div>
+        </div>
+      </section>
+
+      {/* Available Root Domains Showcase */}
+      <section aria-labelledby="available-domains-heading" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="available-domains-heading" className="font-display text-lg font-extrabold">
+            Available Root Domains ({data.rootDomains.length})
+          </h2>
+          <Link href="/claim" className="text-xs font-bold underline underline-offset-4">
+            Open instant builder →
+          </Link>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {data.rootDomains.map((dom) => {
+            const isAuto = dom.dnsProvider !== "namecheap-manual";
+            return (
+              <div
+                key={dom.domain}
+                className="chibi-row-card flex flex-col justify-between gap-4 p-5"
+              >
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono-code text-lg font-extrabold">
+                      *.{dom.domain}
+                    </span>
+                    <span
+                      className="rounded-full border px-2.5 py-0.5 text-xs font-bold"
+                      style={{
+                        backgroundColor: isAuto ? "var(--badge-live-bg)" : "var(--badge-warn-bg)",
+                        borderColor: isAuto ? "var(--badge-live-fg)" : "var(--badge-warn-fg)",
+                        color: isAuto ? "var(--badge-live-fg)" : "var(--badge-warn-fg)",
+                      }}
+                    >
+                      {providerBadgeLabel(dom.dnsProvider)}
+                    </span>
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                    {dom.note ?? `Managed via ${dom.registrar}`}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <Link
+                    href={`/directory?domain=${encodeURIComponent(dom.domain)}`}
+                    className="text-xs font-bold underline underline-offset-4"
+                  >
+                    Inspect records →
+                  </Link>
+                  <Link
+                    href={`/claim?domain=${encodeURIComponent(dom.domain)}`}
+                    className="chibi-secondary-btn"
+                  >
+                    + Add on {dom.domain}
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -80,13 +145,13 @@ export default function OverviewPage() {
             >
               Lookup
             </span>
-            <h2 className="font-display text-lg font-extrabold">Subdomain Directory</h2>
+            <h2 className="font-display text-lg font-extrabold">Live Directory</h2>
             <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              Search active subdomains, copy CNAME/IP targets, and open edit PRs.
+              Filter by root domain, inspect live Name.com records, verify DoH, and copy targets.
             </p>
           </div>
           <span className="text-xs font-bold underline underline-offset-4">
-            Open {data.entries.length} entries →
+            Open directory →
           </span>
         </Link>
 
@@ -103,11 +168,11 @@ export default function OverviewPage() {
                 color: "var(--badge-warn-fg)",
               }}
             >
-              Builder
+              Studio
             </span>
-            <h2 className="font-display text-lg font-extrabold">Claim JSON Generator</h2>
+            <h2 className="font-display text-lg font-extrabold">Instant Claim &amp; Copy</h2>
             <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              Pick Vercel, GitHub Pages, Netlify, or VPS and generate a PR-ready config.
+              Switch domains with dynamic `.domain` suffix, generate copyable rows, and apply DNS live.
             </p>
           </div>
           <span className="text-xs font-bold underline underline-offset-4">
@@ -130,10 +195,9 @@ export default function OverviewPage() {
             >
               Monitor
             </span>
-            <h2 className="font-display text-lg font-extrabold">Health &amp; Quota</h2>
+            <h2 className="font-display text-lg font-extrabold">Health &amp; Env Status</h2>
             <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              {liveCount} live · {warnCount} warn · {deadCount} dead ·{" "}
-              {data.totalDnsRecords}/{data.limits.maxTotalRecords} records used.
+              {liveCount} live · {warnCount} warn · {deadCount} dead · provider API readiness check.
             </p>
           </div>
           <span className="text-xs font-bold underline underline-offset-4">
@@ -146,7 +210,7 @@ export default function OverviewPage() {
       <section aria-labelledby="recent-heading" className="chibi-row-card space-y-3 p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <h2 id="recent-heading" className="font-display text-lg font-extrabold">
-            Active Subdomains
+            Registry Entries
           </h2>
           <Link href="/directory" className="text-xs font-bold underline underline-offset-4">
             View all →
@@ -156,7 +220,7 @@ export default function OverviewPage() {
         <ul role="list" className="divide-y" style={{ borderColor: "var(--border-color)" }}>
           {previewEntries.map((entry) => (
             <li
-              key={entry.label}
+              key={entry.fqdn}
               className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-1 last:pb-1"
               style={{ borderColor: "var(--shadow-tint)" }}
             >

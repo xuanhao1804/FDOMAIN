@@ -27,7 +27,7 @@ export default function RootLayout({
           Skip to content
         </a>
         <AppShell
-          rootDomain={data.rootDomain}
+          rootDomains={data.rootDomains}
           repository={data.repository}
           totalDnsRecords={data.totalDnsRecords}
           maxTotalRecords={data.limits.maxTotalRecords}

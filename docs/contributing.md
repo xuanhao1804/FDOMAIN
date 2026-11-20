@@ -12,9 +12,9 @@ Deploy your site on **Vercel**, **Netlify**, **GitHub Pages**, or a **VPS** so y
 
 ---
 
-## 2. Create `domains/<your-label>.json`
+## 2. Create `domains/<your-label>.json` (or `domains/<rootDomain>/<your-label>.json`)
 
-Open a Pull Request adding `domains/<your-label>.json` (lowercase letters, digits, and hyphens only — no underscores in filenames).
+Open a Pull Request adding `domains/<your-label>.json` for the primary domain (`harrylee.dev`), or `domains/<rootDomain>/<your-label>.json` (for example `domains/vinamuse.store/shop.json`) for another configured root domain. Use lowercase letters, digits, and hyphens only — no underscores in filenames.
 
 ### Basic CNAME example (Vercel / Netlify / GitHub Pages)
 

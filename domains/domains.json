@@ -2,8 +2,8 @@
   "owner": {
     "github": "xuanhao1804"
   },
-  "description": "Public subdomain directory and status portal for FDOMAIN",
+  "description": "Public multi-domain directory and DNS portal for FDOMAIN (Vercel)",
   "records": {
-    "CNAME": "xuanhao1804.github.io"
+    "CNAME": "cname.vercel-dns.com"
   }
 }

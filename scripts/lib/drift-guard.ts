@@ -1,5 +1,5 @@
-import { compileRegistry } from "./compiler.js";
-import { filenameToLabel, parseSubdomainFile } from "./schema.js";
+import { compileMultiDomainRegistry } from "./compiler.js";
+import { getConfiguredRootDomains, parseDomainRelativePath, parseSubdomainFile } from "./schema.js";
 import type { RegistryConfig, SubdomainEntry } from "./types.js";
 import type { DomainRawFile } from "./pr-validator.js";
 
@@ -65,34 +65,43 @@ function toRelativeLabel(fqdn: string, rootDomain: string): string | null {
   return normalized.slice(0, -suffix.length);
 }
 
-function collectManagedLabelsAndVercelTokens(
+function collectManagedLabelsAndVercelTokensByDomain(
   config: RegistryConfig,
   files: DomainRawFile[],
-): { labels: Set<string>; vercelTokens: Set<string> } {
-  const labels = new Set<string>();
-  const vercelTokens = new Set<string>();
+): Map<string, { labels: Set<string>; vercelTokens: Set<string> }> {
+  const byDomain = new Map<string, { labels: Set<string>; vercelTokens: Set<string> }>();
   const entries: SubdomainEntry[] = [];
 
   for (const f of files) {
     try {
-      const label = filenameToLabel(f.filename);
-      const data = parseSubdomainFile(JSON.parse(f.raw), label, config.rootDomain);
-      entries.push({ label, filename: f.filename, data });
+      const parsedPath = parseDomainRelativePath(f.filename, config.rootDomain);
+      const data = parseSubdomainFile(JSON.parse(f.raw), parsedPath.label, parsedPath.rootDomain);
+      entries.push({
+        label: parsedPath.label,
+        rootDomain: parsedPath.rootDomain,
+        filename: parsedPath.filename,
+        data,
+      });
     } catch {
       // Ignore unparseable historical entries; curr files are pre-validated before deploy
     }
   }
 
-  const compiled = compileRegistry(config, entries);
-  for (const rec of compiled.manifest.records) {
-    if (rec.label === "_vercel" && rec.type === "TXT") {
-      vercelTokens.add(rec.value);
-    } else {
-      labels.add(rec.label.toLowerCase());
+  const compiled = compileMultiDomainRegistry(config, entries);
+  for (const [domain, res] of compiled.byDomain.entries()) {
+    const labels = new Set<string>();
+    const vercelTokens = new Set<string>();
+    for (const rec of res.manifest.records) {
+      if (rec.label === "_vercel" && rec.type === "TXT") {
+        vercelTokens.add(rec.value);
+      } else {
+        labels.add(rec.label.toLowerCase());
+      }
     }
+    byDomain.set(domain.toLowerCase(), { labels, vercelTokens });
   }
 
-  return { labels, vercelTokens };
+  return byDomain;
 }
 
 export function evaluateDriftGuard(input: DriftGuardInput): DriftGuardResult {
@@ -100,18 +109,33 @@ export function evaluateDriftGuard(input: DriftGuardInput): DriftGuardResult {
   const violations: string[] = [];
   const summary: string[] = [];
 
-  const prev = collectManagedLabelsAndVercelTokens(config, prevDomainFiles);
-  const curr = collectManagedLabelsAndVercelTokens(config, currDomainFiles);
-
-  const managedLabels = new Set([...prev.labels, ...curr.labels]);
-  const managedVercelTokens = new Set([...prev.vercelTokens, ...curr.vercelTokens]);
+  const prevByDomain = collectManagedLabelsAndVercelTokensByDomain(config, prevDomainFiles);
+  const currByDomain = collectManagedLabelsAndVercelTokensByDomain(config, currDomainFiles);
+  const configuredGitops = new Set(
+    getConfiguredRootDomains(config)
+      .filter((d) => d.dnsProvider === "cloudflare-gitops")
+      .map((d) => d.domain.toLowerCase()),
+  );
 
   let deletionsCount = 0;
   let modificationsCount = 0;
   let creationsCount = 0;
 
   for (const entry of reportEntries) {
-    if (entry.domain.toLowerCase() !== config.rootDomain.toLowerCase()) continue;
+    const zoneDomain = entry.domain.toLowerCase();
+    if (!configuredGitops.has(zoneDomain)) continue;
+
+    const prev = prevByDomain.get(zoneDomain) ?? {
+      labels: new Set<string>(),
+      vercelTokens: new Set<string>(),
+    };
+    const curr = currByDomain.get(zoneDomain) ?? {
+      labels: new Set<string>(),
+      vercelTokens: new Set<string>(),
+    };
+    const managedLabels = new Set([...prev.labels, ...curr.labels]);
+    const managedVercelTokens = new Set([...prev.vercelTokens, ...curr.vercelTokens]);
+
     for (const line of entry.correction_details ?? []) {
       summary.push(line);
       const parsed = parseCorrectionLine(line);
@@ -128,10 +152,10 @@ export function evaluateDriftGuard(input: DriftGuardInput): DriftGuardResult {
         continue;
       }
 
-      const relLabel = toRelativeLabel(parsed.fqdn, config.rootDomain);
+      const relLabel = toRelativeLabel(parsed.fqdn, zoneDomain);
       if (!relLabel) {
         violations.push(
-          `Correction targets domain outside root "${config.rootDomain}": "${line}"`,
+          `Correction targets domain outside root "${zoneDomain}": "${line}"`,
         );
         continue;
       }

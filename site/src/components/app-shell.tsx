@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { SiteRootDomainMeta } from "@/lib/registry";
+import { AdminSessionProvider, useAdminSession } from "./admin-context";
 
 interface AppShellProps {
-  rootDomain: string;
+  rootDomains: SiteRootDomainMeta[];
   repository: string;
   totalDnsRecords: number;
   maxTotalRecords: number;
@@ -67,19 +69,20 @@ function isRouteActive(pathname: string, href: string): boolean {
 
 function SidebarContents({
   pathname,
-  rootDomain,
+  rootDomains,
   repository,
   totalDnsRecords,
   maxTotalRecords,
   onNavigate,
 }: {
   pathname: string;
-  rootDomain: string;
+  rootDomains: SiteRootDomainMeta[];
   repository: string;
   totalDnsRecords: number;
   maxTotalRecords: number;
   onNavigate?: () => void;
 }) {
+  const { authenticated, configured, openLoginModal, logout } = useAdminSession();
   const quotaPct = Math.min(100, Math.round((totalDnsRecords / maxTotalRecords) * 100));
   const repoUrl = `https://github.com/${repository}`;
 
@@ -109,7 +112,7 @@ function SidebarContents({
             className="font-mono-code rounded-full border px-2 py-0.5 text-[11px] font-bold"
             style={{ backgroundColor: "#fffdf6", borderColor: "#24324a" }}
           >
-            *.{rootDomain}
+            {rootDomains.length} {rootDomains.length === 1 ? "domain" : "domains"}
           </span>
         </Link>
 
@@ -151,8 +154,53 @@ function SidebarContents({
             boxShadow: "0 3px 0 var(--shadow-tint)",
           }}
         >
+          <div className="flex items-center justify-between gap-2 text-xs font-bold">
+            <span>Admin Auto-DNS</span>
+            <span
+              className="rounded-full px-2 py-0.5 text-[11px]"
+              style={{
+                backgroundColor: authenticated ? "var(--badge-live-bg)" : "var(--badge-muted-bg)",
+                color: authenticated ? "var(--badge-live-fg)" : "var(--badge-muted-fg)",
+              }}
+            >
+              {authenticated ? "Unlocked" : configured ? "Locked" : "Env Needed"}
+            </span>
+          </div>
+          {authenticated ? (
+            <button
+              type="button"
+              onClick={() => {
+                void logout();
+                onNavigate?.();
+              }}
+              className="chibi-secondary-btn mt-2.5 w-full"
+            >
+              Lock Admin Session
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                onNavigate?.();
+                openLoginModal();
+              }}
+              className="chibi-secondary-btn mt-2.5 w-full"
+            >
+              Unlock Admin Mode
+            </button>
+          )}
+        </div>
+
+        <div
+          className="rounded-2xl border-2 p-3.5"
+          style={{
+            backgroundColor: "var(--bg-surface)",
+            borderColor: "var(--border-color)",
+            boxShadow: "0 3px 0 var(--shadow-tint)",
+          }}
+        >
           <div className="flex items-center justify-between text-xs font-bold">
-            <span>Cloudflare Quota</span>
+            <span>Registry Quota</span>
             <span className="tabular-nums font-mono-code">
               {totalDnsRecords}/{maxTotalRecords}
             </span>
@@ -184,8 +232,16 @@ function SidebarContents({
   );
 }
 
-export function AppShell({
-  rootDomain,
+export function AppShell(props: AppShellProps) {
+  return (
+    <AdminSessionProvider>
+      <AppShellInner {...props} />
+    </AdminSessionProvider>
+  );
+}
+
+function AppShellInner({
+  rootDomains,
   repository,
   totalDnsRecords,
   maxTotalRecords,
@@ -287,7 +343,7 @@ export function AppShell({
         <div className="sticky top-0 h-dvh overflow-y-auto">
           <SidebarContents
             pathname={pathname}
-            rootDomain={rootDomain}
+            rootDomains={rootDomains}
             repository={repository}
             totalDnsRecords={totalDnsRecords}
             maxTotalRecords={maxTotalRecords}
@@ -343,7 +399,7 @@ export function AppShell({
 
             <SidebarContents
               pathname={pathname}
-              rootDomain={rootDomain}
+              rootDomains={rootDomains}
               repository={repository}
               totalDnsRecords={totalDnsRecords}
               maxTotalRecords={maxTotalRecords}
@@ -362,7 +418,7 @@ export function AppShell({
             borderColor: "var(--border-color)",
           }}
         >
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-2.5 px-4 py-2.5 sm:gap-3 sm:px-6">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-2.5 px-4 py-2.5 sm:gap-3 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-2.5">
               <button
                 type="button"
@@ -406,7 +462,7 @@ export function AppShell({
                   color: "#24324a",
                 }}
               >
-                *.{rootDomain}
+                {rootDomains.map((d) => d.domain).join(" · ")}
               </span>
               {!isRouteActive(pathname, "/claim") ? (
                 <Link href="/claim" className="chibi-cta whitespace-nowrap">
@@ -424,7 +480,7 @@ export function AppShell({
         <main
           id="registry-main"
           tabIndex={-1}
-          className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 sm:py-8"
+          className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8"
         >
           {children}
         </main>

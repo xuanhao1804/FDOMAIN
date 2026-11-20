@@ -438,6 +438,62 @@ dialog.nav-drawer::backdrop {
   scrollbar-width: none;
 }
 
+/* Native <dialog> Center Modal (Admin login & Delete confirmation) */
+dialog.chibi-modal {
+  margin: auto;
+  padding: 0;
+  width: min(28rem, calc(100dvw - 24px));
+  max-height: min(88dvh, 42rem);
+  overflow-y: auto;
+  border-radius: 24px;
+  border: 2.5px solid var(--border-color);
+  background-color: var(--bg-cream);
+  color: var(--text-primary);
+  box-shadow: 0 8px 0 var(--shadow-tint);
+}
+
+dialog.chibi-modal:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.chibi-modal::backdrop {
+  background: rgba(24, 33, 51, 0.52);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+/* Accessible visually hidden helper */
+.visually-hidden:where(:not(:focus-within, :active)) {
+  position: absolute !important;
+  clip-path: inset(50%) !important;
+  overflow: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* Deferred post-interaction form validation (:user-invalid + fallback) */
+.chibi-input:is(:user-invalid, .user-invalid-fallback),
+.chibi-input[aria-invalid="true"] {
+  border-color: var(--badge-dead-fg) !important;
+  background-color: var(--badge-dead-bg) !important;
+}
+
+.field-error-text {
+  display: none;
+  color: var(--badge-dead-fg);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.chibi-input:is(:user-invalid, .user-invalid-fallback) ~ .field-error-text,
+.chibi-input[aria-invalid="true"] ~ .field-error-text {
+  display: block;
+}
+
 @supports (animation-timeline: scroll()) {
   dialog.nav-drawer {
     timeline-scope: --drawer-fade;

@@ -1,7 +1,8 @@
-import { withTrailingDot } from "./schema.js";
+import { getConfiguredRootDomains, withTrailingDot } from "./schema.js";
 import type {
   CompiledDnsRecord,
   DnsManifest,
+  MultiDomainDnsManifest,
   RegistryConfig,
   SubdomainEntry,
   UnmanagedRule,
@@ -113,6 +114,7 @@ export function expandEntryRecords(entry: SubdomainEntry): CompiledDnsRecord[] {
 export function compileRegistry(
   config: RegistryConfig,
   entries: SubdomainEntry[],
+  targetRootDomain = config.rootDomain,
 ): CompileResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -121,7 +123,7 @@ export function compileRegistry(
   for (const entry of entries) {
     const key = entry.label.toLowerCase();
     if (byLabel.has(key)) {
-      errors.push(`Duplicate subdomain label "${entry.label}"`);
+      errors.push(`Duplicate subdomain label "${entry.label}" in "${targetRootDomain}"`);
       continue;
     }
     byLabel.set(key, entry);
@@ -141,8 +143,12 @@ export function compileRegistry(
       const parentLabel = entry.label.slice(dotIndex + 1);
       const parent = byLabel.get(parentLabel.toLowerCase());
       if (!parent) {
+        const expectedPath =
+          targetRootDomain.toLowerCase() === config.rootDomain.toLowerCase()
+            ? `domains/${parentLabel}.json`
+            : `domains/${targetRootDomain}/${parentLabel}.json`;
         errors.push(
-          `Nested subdomain "${entry.label}" requires parent file "domains/${parentLabel}.json"`,
+          `Nested subdomain "${entry.label}" requires parent file "${expectedPath}"`,
         );
       } else if (parent.data.owner.github.toLowerCase() !== owner.toLowerCase()) {
         errors.push(
@@ -187,11 +193,71 @@ export function compileRegistry(
 
   return {
     manifest: {
-      rootDomain: config.rootDomain,
+      rootDomain: targetRootDomain,
       unmanaged: config.unmanaged,
       records: allRecords,
     },
     errors,
     warnings,
+  };
+}
+
+export interface MultiDomainCompileResult {
+  manifest: MultiDomainDnsManifest;
+  byDomain: Map<string, CompileResult>;
+  errors: string[];
+  warnings: string[];
+  totalRecords: number;
+}
+
+/** Compile registry entries grouped per configured root domain. */
+export function compileMultiDomainRegistry(
+  config: RegistryConfig,
+  entries: SubdomainEntry[],
+): MultiDomainCompileResult {
+  const configured = getConfiguredRootDomains(config);
+  const configuredMap = new Map(configured.map((d) => [d.domain.toLowerCase(), d]));
+  const grouped = new Map<string, SubdomainEntry[]>();
+
+  for (const d of configured) {
+    grouped.set(d.domain.toLowerCase(), []);
+  }
+
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  for (const entry of entries) {
+    const targetDomain = (entry.rootDomain ?? config.rootDomain).toLowerCase();
+    if (!configuredMap.has(targetDomain)) {
+      errors.push(
+        `Entry "${entry.filename}" targets unconfigured root domain "${targetDomain}". Add it to config.json rootDomains[].`,
+      );
+      continue;
+    }
+    grouped.get(targetDomain)!.push(entry);
+  }
+
+  const zones: DnsManifest[] = [];
+  const byDomain = new Map<string, CompileResult>();
+  let totalRecords = 0;
+
+  for (const domainCfg of configured) {
+    const domain = domainCfg.domain.toLowerCase();
+    const res = compileRegistry(config, grouped.get(domain) ?? [], domain);
+    byDomain.set(domain, res);
+    errors.push(...res.errors);
+    warnings.push(...res.warnings);
+    totalRecords += res.manifest.records.length;
+    if (domainCfg.dnsProvider === "cloudflare-gitops") {
+      zones.push(res.manifest);
+    }
+  }
+
+  return {
+    manifest: { zones },
+    byDomain,
+    errors,
+    warnings,
+    totalRecords,
   };
 }

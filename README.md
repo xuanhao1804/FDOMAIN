@@ -1,48 +1,44 @@
 # FDOMAIN
 
-Personal GitOps subdomain registry (`DNS-as-code`) backed by **GitHub + DNSControl + Cloudflare DNS**, paired with a static **Next.js + Tailwind CSS** lookup directory (`domains.<root>`) and daily dangling-subdomain health scanning.
+Personal **Multi-Domain Subdomain Station** combining a fullstack **Next.js + Tailwind CSS** portal on Vercel (`site/`) with **instant Name.com / Cloudflare API DNS management**, **Namecheap copy-ready record generation + live DoH verification**, and optional **GitOps PR automation**.
 
-## How it works
+## What it does
 
-1. **One file per subdomain** in [`domains/`](domains/): `domains/blog.json` defines `blog.<rootDomain>`.
-2. **Pull requests** run [`validate.yml`](.github/workflows/validate.yml) on `pull_request_target` using trusted code from `main` (never executing PR code):
-   - Enforces file scope (`domains/*.json` only for non-admins), Zod schema, reserved names, case-insensitive ownership, nested parent ownership, and Cloudflare record quota.
-   - Posts a live DNS record diff preview on the PR.
-   - Auto-merges PRs from users listed in `config.json -> trusted` when they only touch their own non-reserved subdomain files.
-3. **Admin fast path**: run `npm run sub -- add blog --cname cname.vercel-dns.com --push` to validate locally and push directly to `main`.
-4. **Safe DNS sync** via [`deploy-dns.yml`](.github/workflows/deploy-dns.yml):
-   - Compiles `domains/*.json` into `dist/dns-manifest.json` and runs `dnscontrol preview`.
-   - Runs `scripts/drift-guard.ts` before `push` to verify DNSControl will not delete or modify any unmanaged/dashboard records (such as apex `@`, `www`, MX, or `_dmarc`).
-5. **Daily health scan** via [`status.yml`](.github/workflows/status.yml) checks for NXDOMAIN CNAME targets and unclaimed Vercel / GitHub Pages / Netlify signatures (`dead-subdomain` issue alerts).
-6. **Lookup portal** (`site/`): Next.js App Router (`output: 'export'`) + Tailwind CSS static web directory showing owners, copyable DNS records, health badges, and one-click GitHub edit links.
+1. **Multi-Domain Studio (`/claim`)**: Pick from configured root domains (`harrylee.dev` on Name.com, `vinamuse.store` on Namecheap, or Cloudflare zones), type a subdomain with live `.<domain>` suffix switching, preview exact copyable `CNAME` / `A` / `TXT` records, verify propagation via DoH, or click **Create DNS Record Now** as Admin.
+2. **Live Multi-Domain Directory (`/directory`)**: Filter across root domains, inspect Git-tracked entries and live provider records, verify live DoH, copy targets, or safely delete non-protected records as Admin.
+3. **Health & API Monitor (`/health`)**: Track registry quotas, dangling-subdomain scans (`status.yml`), and boolean server readiness (`ADMIN_PASSWORD`, `NAMECOM_*`, `CLOUDFLARE_API_TOKEN`).
+4. **GitOps PR Compatibility (`domains/` + `.github/workflows/`)**: Supports both `domains/<label>.json` (default domain) and `domains/<rootDomain>/<label>.json` via Pull Requests or `npm run sub -- add <label> --domain <rootDomain> ...`.
 
 ## Repository layout
 
 ```text
-config.json                  # Root domain, admins, trusted[], reservedLabels, unmanaged[], limits
-domains/                     # Subdomain JSON definitions
-dnsconfig.js                 # DNSControl DSL reading compiled manifest
+config.json                  # rootDomains[], admins, trusted[], reservedLabels, unmanaged[], limits
+domains/                     # Subdomain JSON files (domains/<label>.json or domains/<domain>/<label>.json)
+dnsconfig.js                 # DNSControl DSL for optional cloudflare-gitops zones
 scripts/                     # Validation, PR diff, drift guard, health scan, admin CLI, site exporter
-site/                        # Next.js (App Router, static export) + Tailwind CSS lookup site
+site/                        # Next.js App Router fullstack app (/api/* + bright anime-chibi UI)
 tests/                       # Vitest unit tests
-.github/workflows/           # validate, deploy-dns, status, deploy-site
-docs/                        # Admin setup & contributor guides
+.github/workflows/           # validate, deploy-dns, status
+docs/                        # Admin setup, contributor guide, architecture specs, repo context
 ```
 
 ## Quick commands
 
 ```bash
 npm install
+npm --prefix site install
 npm test                     # Run Vitest unit tests
-npm run typecheck            # Typecheck scripts and tests
-npm run validate             # Validate config.json + domains/*.json
-npm run dns:build            # Build dist/dns-manifest.json for DNSControl
+npm run typecheck            # Typecheck root scripts and tests
+npm --prefix site run typecheck
+npm run validate             # Validate config.json + multi-domain JSON entries
+npm run dns:build            # Build dist/dns-manifest.json
 npm run sub -- list          # List registered subdomains
-npm run site:build           # Export registry JSON and build static Next.js site (site/out/)
+npm run site:build           # Export registry JSON and build Next.js app (site/.next/)
 ```
 
 ## Documentation
 
-- [Admin Setup Guide (Cloudflare, Namecheap / name.com, GitHub Secrets)](docs/setup-guide.md)
-- [Contributor Guide (Requesting a Subdomain & Vercel Verification)](docs/contributing.md)
-- [Approved Design Specification](docs/superpowers/specs/2026-11-20-subdomain-registry-design.md)
+- [Admin Setup Guide (Vercel Env Vars, Name.com, Namecheap, Cloudflare)](docs/setup-guide.md)
+- [Contributor Guide (PR Subdomains & Vercel Verification)](docs/contributing.md)
+- [v2 Multi-Domain Fullstack Spec](docs/superpowers/specs/2026-11-20-multi-domain-auto-dns-design.md)
+- [v1 Core Registry Spec](docs/superpowers/specs/2026-11-20-subdomain-registry-design.md)
