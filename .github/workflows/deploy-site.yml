@@ -1,0 +1,75 @@
+name: Build and Deploy Lookup Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "domains/**"
+      - "config.json"
+      - "site/**"
+      - "scripts/export-site-data.ts"
+      - ".github/workflows/deploy-site.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Download latest status report artifact (optional)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID=$(gh run list --repo "${{ github.repository }}" --workflow status.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -n "$RUN_ID" ]; then
+            gh run download "$RUN_ID" --repo "${{ github.repository }}" --name status-report --dir .
+          fi
+
+      - name: Export registry data for Next.js static site
+        run: npm run site:data
+
+      - name: Install site dependencies & build static export
+        run: |
+          npm --prefix site ci
+          npm --prefix site run build
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/out
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

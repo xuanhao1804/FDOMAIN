@@ -1,0 +1,123 @@
+name: Deploy DNS to Cloudflare
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "domains/**"
+      - "config.json"
+      - "dnsconfig.js"
+      - "scripts/**"
+      - ".github/workflows/deploy-dns.yml"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Bypass drift guard (use ONLY after verifying preview manually)"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: fdomain-deploy-dns
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  DNSCONTROL_VERSION: "5.10.0"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies & validate registry
+        run: |
+          npm ci
+          npm run validate
+          npm run dns:build
+
+      - name: Verify Cloudflare secret is configured
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CF_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN secret is not configured in the 'production' environment."
+            exit 1
+          fi
+
+      - name: Install DNSControl
+        run: |
+          TARBALL="dnscontrol_${DNSCONTROL_VERSION}_linux_amd64.tar.gz"
+          BASE_URL="https://github.com/DNSControl/dnscontrol/releases/download/v${DNSCONTROL_VERSION}"
+          curl -fsSLO "${BASE_URL}/${TARBALL}"
+          curl -fsSLO "${BASE_URL}/checksums.txt"
+          grep " ${TARBALL}$" checksums.txt | sha256sum -c -
+          tar -xzf "${TARBALL}" dnscontrol
+          chmod +x dnscontrol
+          rm -f "${TARBALL}" checksums.txt
+
+      - name: Preview DNS changes
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            fs.writeFileSync("/tmp/creds.json", JSON.stringify({
+              none: { TYPE: "NONE" },
+              cloudflare: { TYPE: "CLOUDFLAREAPI", apitoken: process.env.CLOUDFLARE_API_TOKEN }
+            }));
+          '
+          ./dnscontrol preview --creds /tmp/creds.json --report /tmp/dnscontrol-preview.json
+
+      - name: Run drift & deletion guard
+        id: guard
+        env:
+          FORCE_DEPLOY: ${{ inputs.force == true }}
+        run: |
+          set +e
+          PREV_REF="HEAD~1"
+          if ! git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            PREV_REF="HEAD"
+          fi
+          npm run dns:guard -- --report /tmp/dnscontrol-preview.json --prev "$PREV_REF" --curr HEAD 2>&1 | tee /tmp/guard.log
+          GUARD_EXIT=${PIPESTATUS[0]}
+          set -e
+          echo "exit_code=$GUARD_EXIT" >> "$GITHUB_OUTPUT"
+          exit "$GUARD_EXIT"
+
+      - name: Notify admin if drift guard halted deploy
+        if: failure() && steps.guard.outputs.exit_code != '' && steps.guard.outputs.exit_code != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("node:fs");
+            const log = fs.existsSync("/tmp/guard.log")
+              ? fs.readFileSync("/tmp/guard.log", "utf8")
+              : "Drift guard blocked deployment.";
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: "[drift-guard] DNS deployment halted to protect unmanaged records",
+              body: `\`deploy-dns.yml\` stopped before pushing changes to Cloudflare.\n\n\`\`\`\n${log}\n\`\`\`\n\nReview the records on Cloudflare dashboard, add intentional out-of-band records to \`config.json -> unmanaged\`, or rerun manually with \`force: true\`.`,
+            });
+
+      - name: Push DNS changes to Cloudflare
+        run: ./dnscontrol push --creds /tmp/creds.json
+
+      - name: Cleanup credentials file
+        if: always()
+        run: rm -f /tmp/creds.json /tmp/dnscontrol-preview.json ./dnscontrol
