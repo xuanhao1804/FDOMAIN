@@ -1,8 +1,12 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LOCALE, resolveLocale, SUPPORTED_LOCALES } from "../site/src/lib/i18n/config.js";
-import { createTranslator, translate } from "../site/src/lib/i18n/messages.js";
+import {
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE_NAME,
+  resolveLocale,
+  SUPPORTED_LOCALES,
+} from "../site/src/i18n/config.js";
 
 function flattenCatalog(
   obj: Record<string, unknown>,
@@ -27,26 +31,48 @@ function flattenCatalog(
   return out;
 }
 
-function extractPlaceholders(template: string): string[] {
-  const matches = [...template.matchAll(/\{([a-zA-Z0-9_]+)\}/g)].map((m) => m[1]!);
-  return [...new Set(matches)].sort();
+/** Extract top-level ICU variable names like `{domain}` or `{count, plural, ...}`. */
+function extractIcuVars(template: string): string[] {
+  const vars = new Set<string>();
+  let depth = 0;
+  let tokenStart = -1;
+
+  for (let i = 0; i < template.length; i += 1) {
+    const ch = template[i];
+    if (ch === "{") {
+      if (depth === 0) tokenStart = i + 1;
+      depth += 1;
+    } else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0 && tokenStart !== -1) {
+        const inner = template.slice(tokenStart, i).trim();
+        const varName = inner.split(",")[0]?.trim();
+        if (varName && /^[a-zA-Z0-9_]+$/.test(varName)) {
+          vars.add(varName);
+        }
+        tokenStart = -1;
+      }
+    }
+  }
+
+  return [...vars].sort();
 }
 
-describe("i18n locale catalogs", () => {
-  const localesDir = join(process.cwd(), "site", "src", "locales");
-  const jsonFiles = readdirSync(localesDir)
+describe("next-intl message catalogs", () => {
+  const messagesDir = join(process.cwd(), "site", "messages");
+  const jsonFiles = readdirSync(messagesDir)
     .filter((f) => f.endsWith(".json"))
     .sort();
 
-  it("includes every SUPPORTED_LOCALE json catalog", () => {
+  it("includes every SUPPORTED_LOCALE json catalog under site/messages", () => {
     for (const locale of SUPPORTED_LOCALES) {
       expect(jsonFiles).toContain(`${locale}.json`);
     }
   });
 
-  it("keeps 100% key and {placeholder} parity across all locales/*.json files", () => {
+  it("keeps 100% key and ICU placeholder parity across all site/messages/*.json files", () => {
     const baseRaw = JSON.parse(
-      readFileSync(join(localesDir, "en.json"), "utf8"),
+      readFileSync(join(messagesDir, "en.json"), "utf8"),
     ) as Record<string, unknown>;
     const baseFlat = flattenCatalog(baseRaw);
     const baseKeys = [...baseFlat.keys()].sort();
@@ -55,7 +81,7 @@ describe("i18n locale catalogs", () => {
 
     for (const file of jsonFiles) {
       const raw = JSON.parse(
-        readFileSync(join(localesDir, file), "utf8"),
+        readFileSync(join(messagesDir, file), "utf8"),
       ) as Record<string, unknown>;
       const flat = flattenCatalog(raw);
       const keys = [...flat.keys()].sort();
@@ -64,36 +90,23 @@ describe("i18n locale catalogs", () => {
 
       for (const [key, val] of flat.entries()) {
         expect(val.trim().length, `${file} -> ${key} must be non-empty`).toBeGreaterThan(0);
-        const expectedVars = extractPlaceholders(baseFlat.get(key)!);
-        const actualVars = extractPlaceholders(val);
-        expect(actualVars, `${file} -> ${key} placeholders must match en.json`).toEqual(
+        const expectedVars = extractIcuVars(baseFlat.get(key)!);
+        const actualVars = extractIcuVars(val);
+        expect(actualVars, `${file} -> ${key} ICU variables must match en.json`).toEqual(
           expectedVars,
         );
       }
     }
   });
 
-  it("resolves locale cookies safely and defaults to Vietnamese", () => {
+  it("resolves NEXT_LOCALE cookies safely and defaults to Vietnamese", () => {
     expect(DEFAULT_LOCALE).toBe("vi");
+    expect(LOCALE_COOKIE_NAME).toBe("NEXT_LOCALE");
     expect(resolveLocale(undefined)).toBe("vi");
     expect(resolveLocale("")).toBe("vi");
     expect(resolveLocale("fr")).toBe("vi");
     expect(resolveLocale("vi-VN")).toBe("vi");
     expect(resolveLocale("en")).toBe("en");
     expect(resolveLocale("EN-US")).toBe("en");
-  });
-
-  it("interpolates template variables cleanly in both vi and en", () => {
-    expect(translate("vi", "overview.claimOnDomainCta", { domain: "harrylee.dev" })).toBe(
-      "Tạo .harrylee.dev",
-    );
-    expect(translate("en", "overview.claimOnDomainCta", { domain: "harrylee.dev" })).toBe(
-      "Claim .harrylee.dev",
-    );
-
-    const tVi = createTranslator("vi");
-    expect(tVi("directory.summaryCount", { registry: 0, live: 3 })).toBe(
-      "0 trong repo · 3 trực tiếp",
-    );
   });
 });

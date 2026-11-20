@@ -4,9 +4,9 @@ export type Locale = (typeof SUPPORTED_LOCALES)[number];
 
 export const DEFAULT_LOCALE: Locale = "vi";
 
-export const LOCALE_COOKIE_NAME = "fdomain_locale";
+export const LOCALE_COOKIE_NAME = "NEXT_LOCALE";
 
-export const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
+export const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 export const LOCALE_META: Record<Locale, { short: string; nativeName: string }> = {
   vi: { short: "VI", nativeName: "Tiếng Việt" },

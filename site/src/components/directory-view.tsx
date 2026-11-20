@@ -1,13 +1,29 @@
 "use client";
 
+import {
+  ArrowsClockwise,
+  Broadcast,
+  FolderOpen,
+  LockSimpleOpen,
+  MagnifyingGlass,
+  PencilSimple,
+  Plus,
+  ShieldCheck,
+  Trash,
+  WarningCircle,
+} from "@phosphor-icons/react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import type { LiveDnsRecord } from "@/lib/dns-providers/types";
 import type { SiteRootDomainMeta, SiteSubdomainItem, SubdomainHealth } from "@/lib/registry";
+import { cn } from "@/lib/utils";
 import { useAdminSession } from "./admin-context";
 import { CopyButton } from "./copy-button";
-import { useI18n } from "./i18n-context";
 import { StatusBadge } from "./status-badge";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 
 interface DirectoryViewProps {
   entries: SiteSubdomainItem[];
@@ -22,7 +38,9 @@ export function DirectoryView({
   rootDomains,
   initialDomainFilter,
 }: DirectoryViewProps) {
-  const { t } = useI18n();
+  const t = useTranslations("directory");
+  const tStatus = useTranslations("status");
+  const tCommon = useTranslations("common");
   const { authenticated, openLoginModal } = useAdminSession();
 
   const [domainFilter, setDomainFilter] = useState<string>(initialDomainFilter);
@@ -50,7 +68,7 @@ export function DirectoryView({
       const res = await fetch("/api/dns/records", { cache: "no-store" });
       if (!res.ok) {
         const errBody = (await res.json()) as { error?: string };
-        setLiveError(errBody.error ?? t("directory.liveLoadError"));
+        setLiveError(errBody.error ?? t("liveLoadError"));
         return;
       }
       const body = (await res.json()) as { records?: LiveDnsRecord[] };
@@ -88,7 +106,7 @@ export function DirectoryView({
     const queryType = ["CNAME", "A", "AAAA", "TXT"].includes(type.toUpperCase())
       ? type.toUpperCase()
       : "CNAME";
-    setDohResults((prev) => ({ ...prev, [fqdn]: t("directory.dohChecking") }));
+    setDohResults((prev) => ({ ...prev, [fqdn]: t("dohChecking") }));
     try {
       const res = await fetch(
         `/api/dns/lookup?fqdn=${encodeURIComponent(fqdn)}&type=${encodeURIComponent(queryType)}`,
@@ -100,19 +118,19 @@ export function DirectoryView({
         error?: string;
       };
       if (!res.ok) {
-        setDohResults((prev) => ({ ...prev, [fqdn]: body.error ?? t("directory.dohErrorFallback") }));
+        setDohResults((prev) => ({ ...prev, [fqdn]: body.error ?? t("dohErrorFallback") }));
         return;
       }
       const text =
         body.answers && body.answers.length > 0
-          ? t("directory.dohResultFound", {
+          ? t("dohResultFound", {
               type: queryType,
               answers: body.answers.map((a) => a.data).join(", "),
             })
-          : t("directory.dohResultEmpty", { status: body.status ?? "empty" });
+          : t("dohResultEmpty", { status: body.status ?? "empty" });
       setDohResults((prev) => ({ ...prev, [fqdn]: text }));
     } catch {
-      setDohResults((prev) => ({ ...prev, [fqdn]: t("directory.dohLookupFailed") }));
+      setDohResults((prev) => ({ ...prev, [fqdn]: t("dohLookupFailed") }));
     }
   }
 
@@ -141,10 +159,10 @@ export function DirectoryView({
       });
       const body = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok) {
-        setActionBanner(body.error ?? t("directory.deleteErrorFallback"));
+        setActionBanner(body.error ?? t("deleteErrorFallback"));
       } else {
         setActionBanner(
-          t("directory.deletedBanner", {
+          t("deletedBanner", {
             fqdn: pendingDelete.fqdn,
             type: pendingDelete.type,
           }),
@@ -152,7 +170,7 @@ export function DirectoryView({
         await loadLiveRecords();
       }
     } catch {
-      setActionBanner(t("directory.deleteNetworkError"));
+      setActionBanner(t("deleteNetworkError"));
     } finally {
       setDeleting(false);
       if (deleteDialogRef.current?.open) {
@@ -198,11 +216,11 @@ export function DirectoryView({
   });
 
   const statusButtons: Array<{ id: StatusFilter; label: string }> = [
-    { id: "all", label: t("status.all") },
-    { id: "live", label: t("status.live") },
-    { id: "warn", label: t("status.warn") },
-    { id: "dead", label: t("status.dead") },
-    { id: "unknown", label: t("status.unknown") },
+    { id: "all", label: tStatus("all") },
+    { id: "live", label: tStatus("live") },
+    { id: "warn", label: tStatus("warn") },
+    { id: "dead", label: tStatus("dead") },
+    { id: "unknown", label: tStatus("unknown") },
   ];
 
   const hasActiveFilters =
@@ -216,176 +234,147 @@ export function DirectoryView({
   return (
     <div className="reveal-block space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-extrabold sm:text-3xl">
-            {t("directory.title")}
+        <div className="space-y-1">
+          <h1 className="font-editorial text-2xl font-semibold text-[var(--text-primary)] sm:text-3xl">
+            {t("title")}
           </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-            {t("directory.subtitle")}
-          </p>
+          <p className="text-sm text-[var(--text-muted)]">{t("subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {!authenticated ? (
-            <button type="button" onClick={openLoginModal} className="chibi-secondary-btn">
-              {t("directory.unlockAdminView")}
-            </button>
+            <Button type="button" variant="outline" size="sm" onClick={openLoginModal}>
+              <LockSimpleOpen size={14} weight="bold" aria-hidden="true" />
+              <span>{t("unlockAdminView")}</span>
+            </Button>
           ) : null}
-          <Link href={activeClaimHref} className="chibi-cta">
-            {t("directory.newSubdomain")}
-          </Link>
+          <Button asChild size="sm">
+            <Link href={activeClaimHref}>
+              <Plus size={14} weight="bold" aria-hidden="true" />
+              <span>{t("newSubdomain")}</span>
+            </Link>
+          </Button>
         </div>
       </div>
 
-      {/* Root Domain Switcher Pills */}
-      <div
-        role="group"
-        aria-label={t("directory.filterDomainAria")}
-        className="flex flex-wrap items-center gap-2"
-      >
-        <button
-          type="button"
-          aria-pressed={domainFilter === "all"}
-          onClick={() => setDomainFilter("all")}
-          className="min-h-10 cursor-pointer rounded-full border-2 px-4 text-xs font-bold"
-          style={{
-            backgroundColor: domainFilter === "all" ? "var(--sky)" : "var(--bg-surface)",
-            color: domainFilter === "all" ? "#24324a" : "var(--text-primary)",
-            borderColor: "var(--border-color)",
-            boxShadow: domainFilter === "all" ? "0 2px 0 var(--border-color)" : "none",
-          }}
+      {/* Filter Bar Card */}
+      <Card className="space-y-4 p-4 sm:p-5">
+        <div
+          role="group"
+          aria-label={t("filterDomainAria")}
+          className="flex flex-wrap items-center gap-1.5"
         >
-          {t("directory.allDomains", { count: rootDomains.length })}
-        </button>
-        {rootDomains.map((dom) => {
-          const active = domainFilter.toLowerCase() === dom.domain.toLowerCase();
-          return (
-            <button
-              key={dom.domain}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setDomainFilter(dom.domain)}
-              className="font-mono-code min-h-10 cursor-pointer rounded-full border-2 px-4 text-xs font-bold"
-              style={{
-                backgroundColor: active ? "var(--sky)" : "var(--bg-surface)",
-                color: active ? "#24324a" : "var(--text-primary)",
-                borderColor: "var(--border-color)",
-                boxShadow: active ? "0 2px 0 var(--border-color)" : "none",
-              }}
-            >
-              *.{dom.domain}
-            </button>
-          );
-        })}
-      </div>
+          <button
+            type="button"
+            aria-pressed={domainFilter === "all"}
+            onClick={() => setDomainFilter("all")}
+            className={cn(
+              "min-h-8 cursor-pointer rounded-md border px-3 text-xs font-semibold transition-colors",
+              domainFilter === "all"
+                ? "border-[var(--btn-primary-bg)] bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]"
+                : "border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]",
+            )}
+          >
+            {t("allDomains", { count: rootDomains.length })}
+          </button>
+          {rootDomains.map((dom) => {
+            const active = domainFilter.toLowerCase() === dom.domain.toLowerCase();
+            return (
+              <button
+                key={dom.domain}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setDomainFilter(dom.domain)}
+                className={cn(
+                  "font-mono-code min-h-8 cursor-pointer rounded-md border px-3 text-xs font-semibold transition-colors",
+                  active
+                    ? "border-[var(--btn-primary-bg)] bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]"
+                    : "border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]",
+                )}
+              >
+                *.{dom.domain}
+              </button>
+            );
+          })}
+        </div>
 
-      <search>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="relative flex-1">
-            <label htmlFor="subdomain-search" className="sr-only">
-              {t("directory.searchLabel")}
-            </label>
-            <svg
-              aria-hidden="true"
-              width="18"
-              height="18"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.1"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <circle cx="9" cy="9" r="6" />
-              <path d="m14 14 3.5 3.5" />
-            </svg>
-            <input
-              ref={searchInputRef}
-              id="subdomain-search"
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={
-                domainFilter === "all"
-                  ? t("directory.searchPlaceholderAll")
-                  : t("directory.searchPlaceholderDomain", { domain: domainFilter })
-              }
-              autoCorrect="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              className="min-h-12 w-full rounded-full border-2 py-2.5 pr-12 pl-11 text-base sm:text-sm"
-              style={{
-                backgroundColor: "var(--bg-surface)",
-                borderColor: "var(--border-color)",
-                color: "var(--text-primary)",
-                boxShadow: "0 3px 0 var(--shadow-tint)",
-              }}
-            />
-            <kbd
-              aria-hidden="true"
-              className="font-mono-code pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 rounded-md border px-1.5 py-0.5 text-[11px] font-bold"
-              style={{
-                backgroundColor: "var(--bg-cream)",
-                borderColor: "var(--border-color)",
-                color: "var(--text-muted)",
-              }}
-            >
-              /
-            </kbd>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div
-              className="flex flex-wrap items-center gap-1.5"
-              role="group"
-              aria-label={t("directory.filterStatusAria")}
-            >
-              {statusButtons.map((btn) => {
-                const active = statusFilter === btn.id;
-                return (
-                  <button
-                    key={btn.id}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setStatusFilter(btn.id)}
-                    className="min-h-10 cursor-pointer rounded-full border-2 px-4 text-xs font-bold transition-transform active:scale-95"
-                    style={{
-                      backgroundColor: active ? "var(--sky)" : "var(--bg-surface)",
-                      color: active ? "#24324a" : "var(--text-primary)",
-                      borderColor: "var(--border-color)",
-                      boxShadow: active ? "0 2px 0 var(--border-color)" : "none",
-                    }}
-                  >
-                    {btn.label}
-                  </button>
-                );
-              })}
+        <search>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="relative flex-1">
+              <label htmlFor="subdomain-search" className="sr-only">
+                {t("searchLabel")}
+              </label>
+              <MagnifyingGlass
+                size={16}
+                weight="bold"
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-[var(--text-muted)]"
+              />
+              <input
+                ref={searchInputRef}
+                id="subdomain-search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={
+                  domainFilter === "all"
+                    ? t("searchPlaceholderAll")
+                    : t("searchPlaceholderDomain", { domain: domainFilter })
+                }
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                className="min-h-10 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] py-2 pr-10 pl-10 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors focus-visible:border-[var(--focus-ring)] sm:text-sm"
+              />
+              <kbd aria-hidden="true" className="kbd-key pointer-events-none absolute top-1/2 right-3 -translate-y-1/2">
+                /
+              </kbd>
             </div>
 
-            <span
-              aria-live="polite"
-              className="tabular-nums pl-1 text-xs font-semibold"
-              style={{ color: "var(--text-muted)" }}
-            >
-              {t("directory.summaryCount", {
-                registry: filteredGitEntries.length,
-                live: filteredLiveRecords.length,
-              })}
-            </span>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div
+                className="flex flex-wrap items-center gap-1"
+                role="group"
+                aria-label={t("filterStatusAria")}
+              >
+                {statusButtons.map((btn) => {
+                  const active = statusFilter === btn.id;
+                  return (
+                    <button
+                      key={btn.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setStatusFilter(btn.id)}
+                      className={cn(
+                        "min-h-8 cursor-pointer rounded-md border px-2.5 text-xs font-semibold transition-colors",
+                        active
+                          ? "border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--text-primary)]"
+                          : "border-transparent bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]",
+                      )}
+                    >
+                      {btn.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <span
+                aria-live="polite"
+                className="font-mono-code tabular-nums pl-1 text-xs text-[var(--text-muted)]"
+              >
+                {t("summaryCount", {
+                  registry: filteredGitEntries.length,
+                  live: filteredLiveRecords.length,
+                })}
+              </span>
+            </div>
           </div>
-        </div>
-      </search>
+        </search>
+      </Card>
 
       {actionBanner ? (
         <div
           role="status"
-          className="rounded-2xl border-2 px-4 py-3 text-xs font-bold"
-          style={{
-            backgroundColor: "var(--sky-soft)",
-            borderColor: "#24324a",
-            color: "#24324a",
-          }}
+          className="rounded-lg border border-[var(--badge-info-border)] bg-[var(--badge-info-bg)] px-4 py-3 text-xs font-medium text-[var(--badge-info-fg)]"
         >
           {actionBanner}
         </div>
@@ -393,65 +382,71 @@ export function DirectoryView({
 
       {/* Section 1: Git Registry Entries */}
       <section aria-labelledby="git-registry-heading" className="space-y-3">
-        <h2 id="git-registry-heading" className="font-display text-lg font-extrabold">
-          {t("directory.trackedHeading")}
+        <h2
+          id="git-registry-heading"
+          className="font-editorial text-xl font-semibold text-[var(--text-primary)]"
+        >
+          {t("trackedHeading")}
         </h2>
 
         {filteredGitEntries.length === 0 && filteredLiveRecords.length === 0 ? (
-          <div className="chibi-row-card flex flex-col items-center gap-4 px-6 py-12 text-center">
-            <img
-              src="/images/chibi-mascot-search.png"
-              alt={t("directory.mascotAlt")}
-              width={116}
-              height={132}
-              className="h-28 w-auto select-none"
-            />
+          <Card className="flex flex-col items-center gap-4 px-6 py-12 text-center">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-paper)] text-[var(--text-muted)]">
+              <FolderOpen size={24} weight="duotone" aria-hidden="true" />
+            </span>
             {hasActiveFilters ? (
               <>
                 <div className="space-y-1">
-                  <p className="font-display text-lg font-bold">{t("directory.noMatchTitle")}</p>
-                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    {t("directory.noMatchDesc")}
+                  <p className="text-base font-semibold text-[var(--text-primary)]">
+                    {t("noMatchTitle")}
+                  </p>
+                  <p className="max-w-md text-xs text-[var(--text-muted)] sm:text-sm">
+                    {t("noMatchDesc")}
                   </p>
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => {
                     setQuery("");
                     setDomainFilter("all");
                     setStatusFilter("all");
                   }}
-                  className="chibi-cta"
                 >
-                  {t("directory.showAllButton")}
-                </button>
+                  {t("showAllButton")}
+                </Button>
               </>
             ) : (
               <>
                 <div className="space-y-1">
-                  <p className="font-display text-lg font-bold">{t("directory.emptyTitle")}</p>
-                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    {t("directory.emptyDesc")}
+                  <p className="text-base font-semibold text-[var(--text-primary)]">
+                    {t("emptyTitle")}
+                  </p>
+                  <p className="max-w-md text-xs text-[var(--text-muted)] sm:text-sm">
+                    {t("emptyDesc")}
                   </p>
                 </div>
-                <Link href={activeClaimHref} className="chibi-cta">
-                  {t("directory.emptyClaimCta")}
-                </Link>
+                <Button asChild>
+                  <Link href={activeClaimHref}>
+                    <Plus size={15} weight="bold" aria-hidden="true" />
+                    <span>{t("emptyClaimCta")}</span>
+                  </Link>
+                </Button>
               </>
             )}
-          </div>
+          </Card>
         ) : filteredGitEntries.length === 0 ? (
-          <div className="chibi-row-card px-5 py-6 text-sm" style={{ color: "var(--text-muted)" }}>
-            {t("directory.noGitFilesLiveBelow")}
-          </div>
+          <Card className="px-5 py-5 text-xs sm:text-sm text-[var(--text-muted)]">
+            {t("noGitFilesLiveBelow")}
+          </Card>
         ) : (
-          <ul role="list" className="space-y-3">
+          <ul role="list" className="space-y-2.5">
             {filteredGitEntries.map((entry) => {
               const firstType = entry.records[0]?.type ?? "CNAME";
               return (
                 <li
                   key={entry.fqdn}
-                  className="chibi-row-card flex flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between"
+                  className="bento-card bento-card-interactive flex flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between"
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2.5">
@@ -459,47 +454,36 @@ export function DirectoryView({
                         href={`https://${entry.fqdn}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-mono-code text-base font-bold underline decoration-2 underline-offset-4 hover:opacity-75"
-                        style={{ color: "var(--text-primary)" }}
+                        className="font-mono-code text-sm font-bold text-[var(--text-primary)] underline decoration-[var(--border-strong)] underline-offset-4 hover:text-[var(--accent-terracotta)]"
                       >
                         {entry.fqdn}
                       </a>
                       <StatusBadge status={entry.health.status} reason={entry.health.reason} />
                     </div>
-                    <p className="text-xs sm:text-sm" style={{ color: "var(--text-muted)" }}>
-                      {entry.description}
-                    </p>
-                    <p
-                      className="font-mono-code min-h-[1.1rem] truncate text-xs font-semibold"
-                      style={{ color: "var(--badge-live-fg)" }}
-                    >
+                    <p className="text-xs text-[var(--text-muted)]">{entry.description}</p>
+                    <p className="font-mono-code min-h-[1.1rem] truncate text-xs font-medium text-[var(--badge-live-fg)]">
                       {dohResults[entry.fqdn] ?? ""}
                     </p>
                   </div>
 
-                  <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <a
                       href={entry.owner.profileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold hover:opacity-80"
-                      style={{
-                        backgroundColor: "var(--bg-subtle)",
-                        borderColor: "var(--border-color)",
-                        color: "var(--text-primary)",
-                      }}
+                      className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-paper)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--border-strong)]"
                     >
                       <img
                         src={entry.owner.avatarUrl}
                         alt=""
-                        width={20}
-                        height={20}
+                        width={16}
+                        height={16}
                         className="rounded-full"
                       />
                       <span>@{entry.owner.github}</span>
                     </a>
 
-                    <ul role="list" className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+                    <ul role="list" className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
                       {entry.records.map((rec, idx) => {
                         const targetHost =
                           rec.label === entry.label
@@ -508,35 +492,22 @@ export function DirectoryView({
                         return (
                           <li
                             key={`${rec.label}-${rec.type}-${idx}`}
-                            className="flex min-w-0 max-w-full items-center gap-2 rounded-xl border px-3 py-1.5"
-                            style={{
-                              backgroundColor: "var(--bg-cream)",
-                              borderColor: "var(--border-color)",
-                            }}
+                            className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-paper)] px-2.5 py-1"
                           >
-                            <span
-                              className="font-mono-code shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold"
-                              style={{
-                                backgroundColor: "var(--sky-soft)",
-                                color: "#24324a",
-                              }}
-                            >
+                            <Badge variant="info" className="font-mono-code shrink-0">
                               {rec.type}
-                            </span>
+                            </Badge>
                             {rec.label !== entry.label ? (
-                              <span
-                                className="font-mono-code shrink-0 text-xs font-semibold"
-                                style={{ color: "var(--text-muted)" }}
-                              >
+                              <span className="font-mono-code shrink-0 text-xs text-[var(--text-muted)]">
                                 {rec.label}
                               </span>
                             ) : null}
-                            <code className="font-mono-code truncate text-xs font-medium">
+                            <code className="font-mono-code truncate text-xs text-[var(--text-primary)]">
                               {rec.value}
                             </code>
                             <CopyButton
                               value={rec.value}
-                              label={t("directory.copyTargetAria", {
+                              label={t("copyTargetAria", {
                                 type: rec.type,
                                 fqdn: targetHost,
                               })}
@@ -546,23 +517,27 @@ export function DirectoryView({
                       })}
                     </ul>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => checkLiveDoh(entry.fqdn, firstType)}
-                      className="chibi-secondary-btn"
                     >
-                      {t("directory.checkDoh")}
-                    </button>
+                      <Broadcast size={14} weight="duotone" aria-hidden="true" />
+                      <span>{t("checkDoh")}</span>
+                    </Button>
 
-                    <a
-                      href={entry.editUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={t("directory.editAriaLabel", { fqdn: entry.fqdn })}
-                      className="chibi-secondary-btn"
-                    >
-                      {t("common.edit")}
-                    </a>
+                    <Button asChild variant="outline" size="sm">
+                      <a
+                        href={entry.editUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={t("editAriaLabel", { fqdn: entry.fqdn })}
+                      >
+                        <PencilSimple size={14} weight="duotone" aria-hidden="true" />
+                        <span>{tCommon("edit")}</span>
+                      </a>
+                    </Button>
                   </div>
                 </li>
               );
@@ -571,103 +546,98 @@ export function DirectoryView({
         )}
       </section>
 
-      {/* Section 2: Live DNS Provider API Records (Name.com / Cloudflare) */}
+      {/* Section 2: Live DNS Provider API Records */}
       <section aria-labelledby="live-provider-heading" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 id="live-provider-heading" className="font-display text-lg font-extrabold">
-              {t("directory.liveHeading")}
+            <h2
+              id="live-provider-heading"
+              className="font-editorial text-xl font-semibold text-[var(--text-primary)]"
+            >
+              {t("liveHeading")}
             </h2>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {authenticated ? t("directory.liveDescUnlocked") : t("directory.liveDescLocked")}
+            <p className="text-xs text-[var(--text-muted)]">
+              {authenticated ? t("liveDescUnlocked") : t("liveDescLocked")}
             </p>
           </div>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => void loadLiveRecords()}
             disabled={liveLoading}
-            className="chibi-secondary-btn min-w-[10.5rem]"
+            className="min-w-[10.5rem]"
           >
-            {liveLoading ? t("common.refreshing") : t("directory.refreshLiveDns")}
-          </button>
+            <ArrowsClockwise
+              size={14}
+              weight="bold"
+              aria-hidden="true"
+              className={cn(liveLoading && "animate-spin")}
+            />
+            <span>{liveLoading ? tCommon("refreshing") : t("refreshLiveDns")}</span>
+          </Button>
         </div>
 
         {liveError ? (
-          <div
-            className="rounded-2xl border-2 px-4 py-3 text-xs font-bold"
-            style={{
-              backgroundColor: "var(--badge-warn-bg)",
-              borderColor: "var(--badge-warn-fg)",
-              color: "var(--badge-warn-fg)",
-            }}
-          >
-            {liveError}
+          <div className="flex items-center gap-2 rounded-lg border border-[var(--badge-warn-border)] bg-[var(--badge-warn-bg)] px-4 py-3 text-xs font-medium text-[var(--badge-warn-fg)]">
+            <WarningCircle size={15} weight="duotone" aria-hidden="true" className="shrink-0" />
+            <span>{liveError}</span>
           </div>
         ) : filteredLiveRecords.length === 0 ? (
-          <div className="chibi-row-card px-5 py-5 text-xs sm:text-sm" style={{ color: "var(--text-muted)" }}>
-            {t("directory.emptyLiveRecords")}
-          </div>
+          <Card className="px-5 py-5 text-xs sm:text-sm text-[var(--text-muted)]">
+            {t("emptyLiveRecords")}
+          </Card>
         ) : (
-          <ul role="list" className="space-y-2.5">
+          <ul role="list" className="space-y-2">
             {filteredLiveRecords.map((rec, i) => (
               <li
                 key={`${rec.domain}-${rec.id ?? rec.host}-${rec.type}-${i}`}
-                className="chibi-row-card flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
+                className="bento-card bento-card-interactive flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className="font-mono-code rounded-md px-2 py-0.5 text-[11px] font-extrabold"
-                      style={{ backgroundColor: "var(--sky-soft)", color: "#24324a" }}
-                    >
+                    <Badge variant="info" className="font-mono-code">
                       {rec.type}
+                    </Badge>
+                    <span className="font-mono-code text-sm font-semibold text-[var(--text-primary)]">
+                      {rec.fqdn}
                     </span>
-                    <span className="font-mono-code text-sm font-bold">{rec.fqdn}</span>
                     {rec.protected ? (
-                      <span
-                        className="rounded-full px-2 py-0.5 text-[11px] font-bold"
-                        style={{
-                          backgroundColor: "var(--badge-muted-bg)",
-                          color: "var(--badge-muted-fg)",
-                        }}
-                      >
-                        {t("directory.protectedBadge")}
-                      </span>
+                      <Badge variant="neutral">
+                        <ShieldCheck size={11} weight="fill" aria-hidden="true" />
+                        <span>{t("protectedBadge")}</span>
+                      </Badge>
                     ) : null}
                   </div>
-                  <code
-                    className="font-mono-code block truncate text-xs"
-                    style={{ color: "var(--text-muted)" }}
-                  >
+                  <code className="font-mono-code block truncate text-xs text-[var(--text-muted)]">
                     {rec.value} · TTL {rec.ttl}s
                   </code>
                 </div>
 
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                   <CopyButton
                     value={rec.value}
-                    label={t("directory.copyValueAria", { type: rec.type, fqdn: rec.fqdn })}
+                    label={t("copyValueAria", { type: rec.type, fqdn: rec.fqdn })}
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() => checkLiveDoh(rec.fqdn, rec.type)}
-                    className="chibi-secondary-btn"
                   >
-                    {t("directory.checkDoh")}
-                  </button>
+                    <Broadcast size={14} weight="duotone" aria-hidden="true" />
+                    <span>{t("checkDoh")}</span>
+                  </Button>
                   {rec.canDelete ? (
-                    <button
+                    <Button
                       type="button"
+                      variant="destructive"
+                      size="sm"
                       onClick={() => requestDeleteRecord(rec)}
-                      className="inline-flex min-h-9 cursor-pointer items-center justify-center rounded-full border-2 px-3.5 text-xs font-bold"
-                      style={{
-                        backgroundColor: "var(--badge-dead-bg)",
-                        borderColor: "var(--badge-dead-fg)",
-                        color: "var(--badge-dead-fg)",
-                      }}
                     >
-                      {t("common.delete")}
-                    </button>
+                      <Trash size={14} weight="duotone" aria-hidden="true" />
+                      <span>{tCommon("delete")}</span>
+                    </Button>
                   ) : null}
                 </div>
               </li>
@@ -681,26 +651,24 @@ export function DirectoryView({
         ref={deleteDialogRef}
         id="confirm-delete-dialog"
         aria-labelledby="delete-dialog-title"
-        className="chibi-modal"
+        className="editorial-modal"
         onClose={() => {
           if (deleteDialogRef.current) deleteDialogRef.current.returnValue = "";
           setPendingDelete(null);
           setConfirmReservedDelete(false);
         }}
       >
-        <div
-          className="border-b-2 px-5 py-3.5"
-          style={{ backgroundColor: "var(--badge-dead-bg)", borderColor: "#24324a" }}
-        >
-          <h2 id="delete-dialog-title" className="font-display text-lg font-extrabold" style={{ color: "var(--badge-dead-fg)" }}>
-            {t("directory.deleteDialogTitle")}
+        <div className="flex items-center gap-2 border-b border-[var(--badge-dead-border)] bg-[var(--badge-dead-bg)] px-5 py-3.5">
+          <Trash size={16} weight="duotone" aria-hidden="true" className="text-[var(--badge-dead-fg)]" />
+          <h2 id="delete-dialog-title" className="text-sm font-semibold text-[var(--badge-dead-fg)]">
+            {t("deleteDialogTitle")}
           </h2>
         </div>
 
         <div className="space-y-4 p-5 text-sm">
           {pendingDelete ? (
-            <p className="leading-relaxed">
-              {t("directory.deleteDialogBody", {
+            <p className="leading-relaxed text-[var(--text-secondary)]">
+              {t("deleteDialogBody", {
                 type: pendingDelete.type,
                 fqdn: pendingDelete.fqdn,
                 value: pendingDelete.value,
@@ -710,46 +678,34 @@ export function DirectoryView({
           ) : null}
 
           {pendingDelete?.reserved ? (
-            <label
-              className="flex cursor-pointer items-start gap-2 rounded-xl border-2 p-3 text-xs font-bold"
-              style={{
-                backgroundColor: "var(--badge-warn-bg)",
-                borderColor: "var(--badge-warn-fg)",
-                color: "var(--badge-warn-fg)",
-              }}
-            >
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--badge-warn-border)] bg-[var(--badge-warn-bg)] p-3 text-xs font-medium text-[var(--badge-warn-fg)]">
               <input
                 type="checkbox"
                 checked={confirmReservedDelete}
                 onChange={(e) => setConfirmReservedDelete(e.target.checked)}
                 className="mt-0.5 h-4 w-4 shrink-0"
               />
-              <span>{t("directory.deleteReservedConfirm")}</span>
+              <span>{t("deleteReservedConfirm")}</span>
             </label>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-end gap-2.5">
-            <button
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
               type="button"
+              variant="outline"
               autoFocus
               onClick={() => deleteDialogRef.current?.close("cancel")}
-              className="chibi-secondary-btn"
             >
-              {t("common.cancel")}
-            </button>
-            <button
+              {tCommon("cancel")}
+            </Button>
+            <Button
               type="button"
+              variant="destructiveSolid"
               disabled={deleting || (Boolean(pendingDelete?.reserved) && !confirmReservedDelete)}
               onClick={() => void executeConfirmedDelete()}
-              className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-full border-2 px-5 text-sm font-bold disabled:opacity-50"
-              style={{
-                backgroundColor: "var(--badge-dead-fg)",
-                borderColor: "#24324a",
-                color: "#ffffff",
-              }}
             >
-              {deleting ? t("common.deleting") : t("directory.confirmDeleteAction")}
-            </button>
+              {deleting ? tCommon("deleting") : t("confirmDeleteAction")}
+            </Button>
           </div>
         </div>
       </dialog>

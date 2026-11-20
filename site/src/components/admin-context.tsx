@@ -1,5 +1,7 @@
 "use client";
 
+import { Eye, EyeSlash, LockKey, WarningCircle, X } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
 import {
   createContext,
   useCallback,
@@ -11,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import type { DomainCapability, ProviderEnvStatus } from "@/lib/dns-providers/types";
-import { useI18n } from "./i18n-context";
+import { Button } from "./ui/button";
 
 interface AdminContextValue {
   authenticated: boolean;
@@ -46,7 +48,9 @@ export function useAdminSession(): AdminContextValue {
 }
 
 export function AdminSessionProvider({ children }: { children: ReactNode }) {
-  const { t } = useI18n();
+  const t = useTranslations("admin");
+  const tCommon = useTranslations("common");
+
   const [authenticated, setAuthenticated] = useState(false);
   const [configured, setConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -94,7 +98,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  // Progressive fallback for closedby="any" on browsers without native support (Safari)
+  // Progressive fallback for closedby="any" on browsers without native support
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog || "closedBy" in HTMLDialogElement.prototype) return;
@@ -158,7 +162,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   async function handleLoginSubmit(e: FormEvent) {
     e.preventDefault();
     if (!password.trim()) {
-      setLoginError(t("admin.enterPasswordError"));
+      setLoginError(t("enterPasswordError"));
       passwordInputRef.current?.focus();
       return;
     }
@@ -173,7 +177,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       });
       const body = (await res.json()) as { authenticated?: boolean; error?: string };
       if (!res.ok) {
-        setLoginError(body.error ?? t("admin.loginFailedError"));
+        setLoginError(body.error ?? t("loginFailedError"));
         passwordInputRef.current?.focus();
         return;
       }
@@ -182,7 +186,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       closeLoginModal();
       await refresh();
     } catch {
-      setLoginError(t("admin.networkError"));
+      setLoginError(t("networkError"));
     } finally {
       setSubmitting(false);
     }
@@ -203,12 +207,12 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     >
       {children}
 
-      {/* Native top-layer modal <dialog> (no role="dialog" or aria-modal needed) */}
+      {/* Native top-layer modal <dialog> */}
       <dialog
         ref={dialogRef}
         id="admin-login-dialog"
         aria-labelledby="admin-dialog-title"
-        className="chibi-modal"
+        className="editorial-modal"
         {...({ closedby: "any" } as Record<string, string>)}
         onClose={() => {
           if (dialogRef.current) dialogRef.current.returnValue = "";
@@ -216,55 +220,47 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
           setLoginError(null);
         }}
       >
-        <div
-          className="flex items-center justify-between border-b-2 px-5 py-3.5"
-          style={{ backgroundColor: "var(--header-bg)", borderColor: "#24324a" }}
-        >
-          <h2 id="admin-dialog-title" className="font-display text-lg font-extrabold" style={{ color: "#24324a" }}>
-            {t("admin.dialogTitle")}
-          </h2>
-          <button
+        <div className="flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-paper)] px-5 py-3.5">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent-terracotta-bg)] text-[var(--accent-terracotta)]">
+              <LockKey size={16} weight="duotone" aria-hidden="true" />
+            </span>
+            <h2 id="admin-dialog-title" className="text-sm font-semibold text-[var(--text-primary)]">
+              {t("dialogTitle")}
+            </h2>
+          </div>
+          <Button
             type="button"
-            aria-label={t("admin.closeAriaLabel")}
+            variant="ghost"
+            size="iconSm"
+            aria-label={t("closeAriaLabel")}
             onClick={closeLoginModal}
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 text-xs font-bold"
-            style={{
-              backgroundColor: "var(--bg-cream)",
-              borderColor: "#24324a",
-              color: "#24324a",
-            }}
           >
-            ✕
-          </button>
+            <X size={15} weight="bold" aria-hidden="true" />
+          </Button>
         </div>
 
         <form onSubmit={handleLoginSubmit} className="space-y-4 p-5">
           {!configured ? (
-            <div
-              className="rounded-2xl border-2 p-3.5 text-xs leading-relaxed"
-              style={{
-                backgroundColor: "var(--badge-warn-bg)",
-                borderColor: "var(--badge-warn-fg)",
-                color: "var(--badge-warn-fg)",
-              }}
-            >
-              <p className="font-bold">{t("admin.envMissingTitle")}</p>
-              <p className="mt-1">{t("admin.envMissingDesc")}</p>
+            <div className="flex items-start gap-2.5 rounded-lg border border-[var(--badge-warn-border)] bg-[var(--badge-warn-bg)] p-3.5 text-xs leading-relaxed text-[var(--badge-warn-fg)]">
+              <WarningCircle size={16} weight="duotone" aria-hidden="true" className="mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="font-semibold">{t("envMissingTitle")}</p>
+                <p>{t("envMissingDesc")}</p>
+              </div>
             </div>
           ) : (
-            <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              {t("admin.signInDesc")}
-            </p>
+            <p className="text-xs leading-relaxed text-[var(--text-muted)]">{t("signInDesc")}</p>
           )}
 
           <div className="space-y-1.5">
-            <label htmlFor="admin-password-input" className="block text-xs font-bold uppercase tracking-wide">
-              {t("admin.passwordLabel")}
-            </label>
-            <div
-              className="flex items-center overflow-hidden rounded-xl border-2"
-              style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-color)" }}
+            <label
+              htmlFor="admin-password-input"
+              className="block text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]"
             >
+              {t("passwordLabel")}
+            </label>
+            <div className="flex items-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] focus-within:border-[var(--focus-ring)]">
               <input
                 ref={passwordInputRef}
                 id="admin-password-input"
@@ -278,23 +274,23 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
                 }}
                 aria-invalid={loginError ? "true" : "false"}
                 aria-describedby={loginError ? "admin-login-error" : undefined}
-                placeholder={t("admin.passwordPlaceholder")}
-                className="min-h-11 min-w-0 flex-1 bg-transparent px-3 text-base sm:text-sm"
+                placeholder={t("passwordPlaceholder")}
+                className="min-h-10 min-w-0 flex-1 bg-transparent px-3 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none sm:text-sm"
                 required
               />
               <button
                 type="button"
                 aria-pressed={showPassword}
-                aria-label={showPassword ? t("admin.hidePassword") : t("admin.showPassword")}
+                aria-label={showPassword ? t("hidePassword") : t("showPassword")}
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="min-w-[3.75rem] shrink-0 cursor-pointer border-l-2 px-3 py-2.5 text-center text-xs font-bold"
-                style={{
-                  backgroundColor: "var(--bg-subtle)",
-                  borderColor: "var(--border-color)",
-                  color: "var(--text-primary)",
-                }}
+                className="inline-flex min-w-[4.5rem] shrink-0 cursor-pointer items-center justify-center gap-1.5 border-l border-[var(--border-color)] bg-[var(--bg-paper)] px-3 py-2.5 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-subtle)]"
               >
-                {showPassword ? t("admin.hideLabel") : t("admin.showLabel")}
+                {showPassword ? (
+                  <EyeSlash size={14} weight="bold" aria-hidden="true" />
+                ) : (
+                  <Eye size={14} weight="bold" aria-hidden="true" />
+                )}
+                <span>{showPassword ? t("hideLabel") : t("showLabel")}</span>
               </button>
             </div>
           </div>
@@ -303,32 +299,19 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
             <p
               id="admin-login-error"
               role="alert"
-              className="rounded-xl border px-3 py-2 text-xs font-bold"
-              style={{
-                backgroundColor: "var(--badge-dead-bg)",
-                borderColor: "var(--badge-dead-fg)",
-                color: "var(--badge-dead-fg)",
-              }}
+              className="rounded-lg border border-[var(--badge-dead-border)] bg-[var(--badge-dead-bg)] px-3 py-2 text-xs font-medium text-[var(--badge-dead-fg)]"
             >
               {loginError}
             </p>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-end gap-2.5 pt-1">
-            <button
-              type="button"
-              onClick={closeLoginModal}
-              className="chibi-secondary-btn"
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="chibi-cta"
-            >
-              {submitting ? t("admin.checkingAction") : t("admin.unlockAction")}
-            </button>
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+            <Button type="button" variant="outline" onClick={closeLoginModal}>
+              {tCommon("cancel")}
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? t("checkingAction") : t("unlockAction")}
+            </Button>
           </div>
         </form>
       </dialog>

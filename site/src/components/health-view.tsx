@@ -1,12 +1,25 @@
 "use client";
 
+import {
+  ArrowUpRight,
+  CheckCircle,
+  Gauge,
+  GlobeHemisphereWest,
+  Heartbeat,
+  LockSimpleOpen,
+  ShieldWarning,
+  WarningCircle,
+} from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
 import type { SiteRegistryPayload } from "@/lib/registry";
 import { useAdminSession } from "./admin-context";
-import { useI18n } from "./i18n-context";
 import { StatusBadge } from "./status-badge";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 
 export function HealthView({ data }: { data: SiteRegistryPayload }) {
-  const { t } = useI18n();
+  const t = useTranslations("health");
   const { authenticated, envStatus, capabilities, openLoginModal } = useAdminSession();
 
   const liveCount = data.entries.filter((e) => e.health.status === "live").length;
@@ -22,93 +35,101 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
   return (
     <div className="reveal-block space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-extrabold sm:text-3xl">
-            {t("health.title")}
+        <div className="space-y-1">
+          <h1 className="font-editorial text-2xl font-semibold text-[var(--text-primary)] sm:text-3xl">
+            {t("title")}
           </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-            {t("health.subtitle")}
-          </p>
+          <p className="text-sm text-[var(--text-muted)]">{t("subtitle")}</p>
         </div>
-        <a
-          href={issuesUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="chibi-secondary-btn"
-        >
-          {t("health.viewAlertIssues")}
-        </a>
+        <Button asChild variant="outline" size="sm">
+          <a href={issuesUrl} target="_blank" rel="noopener noreferrer">
+            <span>{t("viewAlertIssues")}</span>
+            <ArrowUpRight size={14} weight="bold" aria-hidden="true" />
+          </a>
+        </Button>
       </div>
 
-      {/* Summary Grid */}
+      {/* 4-Column Metric Bento Grid */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="chibi-row-card p-5">
-          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            {t("health.rootDomainsCard")}
-          </p>
-          <p className="font-display tabular-nums mt-2 text-3xl font-extrabold">
+        <Card className="p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
+              {t("rootDomainsCard")}
+            </p>
+            <GlobeHemisphereWest size={18} weight="duotone" aria-hidden="true" className="text-[var(--badge-info-fg)]" />
+          </div>
+          <p className="font-mono-code tabular-nums mt-3 text-3xl font-bold text-[var(--text-primary)]">
             {data.rootDomains.length}
           </p>
-          <p className="font-mono-code mt-1 truncate text-xs" style={{ color: "var(--text-muted)" }}>
+          <p className="font-mono-code mt-1.5 truncate text-xs text-[var(--text-muted)]">
             {data.rootDomains.map((d) => d.domain).join(", ")}
           </p>
-        </div>
+        </Card>
 
-        <div className="chibi-row-card p-5">
-          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            {t("health.healthyLiveCard")}
+        <Card className="p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
+              {t("healthyLiveCard")}
+            </p>
+            <Heartbeat size={18} weight="duotone" aria-hidden="true" className="text-[var(--badge-live-fg)]" />
+          </div>
+          <p className="font-mono-code tabular-nums mt-3 text-3xl font-bold text-[var(--text-primary)]">
+            {liveCount}
           </p>
-          <p className="font-display tabular-nums mt-2 text-3xl font-extrabold">{liveCount}</p>
-          <p className="mt-1 text-xs" style={{ color: "var(--badge-live-fg)" }}>
-            {t("health.healthySubtext", { other: warnCount + pendingCount })}
+          <p className="mt-1.5 text-xs text-[var(--badge-live-fg)]">
+            {t("healthySubtext", { other: warnCount + pendingCount })}
           </p>
-        </div>
+        </Card>
 
-        <div className="chibi-row-card p-5">
-          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            {t("health.deadRiskCard")}
+        <Card className="p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
+              {t("deadRiskCard")}
+            </p>
+            <ShieldWarning size={18} weight="duotone" aria-hidden="true" className="text-[var(--badge-dead-fg)]" />
+          </div>
+          <p className="font-mono-code tabular-nums mt-3 text-3xl font-bold text-[var(--text-primary)]">
+            {deadCount}
           </p>
-          <p className="font-display tabular-nums mt-2 text-3xl font-extrabold">{deadCount}</p>
-          <p className="mt-1 text-xs" style={{ color: "var(--badge-dead-fg)" }}>
-            {t("health.deadSubtext")}
-          </p>
-        </div>
+          <p className="mt-1.5 text-xs text-[var(--badge-dead-fg)]">{t("deadSubtext")}</p>
+        </Card>
 
-        <div className="chibi-row-card p-5">
-          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            {t("health.quotaCard")}
-          </p>
-          <p className="font-display tabular-nums mt-2 text-3xl font-extrabold">
+        <Card className="p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
+              {t("quotaCard")}
+            </p>
+            <Gauge size={18} weight="duotone" aria-hidden="true" className="text-[var(--accent-terracotta)]" />
+          </div>
+          <p className="font-mono-code tabular-nums mt-3 text-3xl font-bold text-[var(--text-primary)]">
             {data.totalDnsRecords}
-            <span className="text-base font-semibold" style={{ color: "var(--text-muted)" }}>
+            <span className="text-base font-normal text-[var(--text-muted)]">
               /{data.limits.maxTotalRecords}
             </span>
           </p>
-          <div
-            className="mt-2 h-2 w-full overflow-hidden rounded-full border"
-            style={{ backgroundColor: "var(--bg-subtle)", borderColor: "var(--border-color)" }}
-          >
+          <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-subtle)]">
             <div
-              className="h-full"
-              style={{ width: `${quotaPct}%`, backgroundColor: "var(--mint)" }}
+              className="h-full rounded-full bg-[var(--accent-terracotta)]"
+              style={{ width: `${Math.max(quotaPct, data.totalDnsRecords > 0 ? 4 : 0)}%` }}
             />
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Vercel Server Env & Provider Readiness */}
-      <div className="chibi-panel space-y-4 p-5 sm:p-6">
+      <Card className="space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="font-display text-lg font-extrabold">{t("health.serverEnvTitle")}</h2>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {t("health.serverEnvDesc")}
-            </p>
+            <h2 className="font-editorial text-xl font-semibold text-[var(--text-primary)]">
+              {t("serverEnvTitle")}
+            </h2>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">{t("serverEnvDesc")}</p>
           </div>
           {!authenticated ? (
-            <button type="button" onClick={openLoginModal} className="chibi-secondary-btn">
-              {t("health.unlockAdmin")}
-            </button>
+            <Button type="button" variant="outline" size="sm" onClick={openLoginModal}>
+              <LockSimpleOpen size={14} weight="bold" aria-hidden="true" />
+              <span>{t("unlockAdmin")}</span>
+            </Button>
           ) : null}
         </div>
 
@@ -117,46 +138,37 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
             {
               name: "ADMIN_PASSWORD",
               ready: envStatus.adminAuthConfigured,
-              desc: t("health.envAdminDesc"),
+              desc: t("envAdminDesc"),
             },
             {
               name: "NAMECOM_USERNAME + TOKEN",
               ready: envStatus.namecomConfigured,
-              desc: t("health.envNamecomDesc"),
+              desc: t("envNamecomDesc"),
             },
             {
               name: "CLOUDFLARE_API_TOKEN",
               ready: envStatus.cloudflareConfigured,
-              desc: t("health.envCloudflareDesc"),
+              desc: t("envCloudflareDesc"),
             },
           ].map((item) => (
             <div
               key={item.name}
-              className="rounded-2xl border-2 p-4"
-              style={{
-                backgroundColor: "var(--bg-surface)",
-                borderColor: "var(--border-color)",
-              }}
+              className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] p-4"
             >
               <div className="flex items-center justify-between gap-2">
-                <code className="font-mono-code text-xs font-bold">{item.name}</code>
-                <span
-                  className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold"
-                  style={{
-                    backgroundColor: item.ready
-                      ? "var(--badge-live-bg)"
-                      : "var(--badge-warn-bg)",
-                    color: item.ready
-                      ? "var(--badge-live-fg)"
-                      : "var(--badge-warn-fg)",
-                  }}
-                >
-                  {item.ready ? t("health.readyBadge") : t("health.missingBadge")}
-                </span>
+                <code className="font-mono-code text-xs font-semibold text-[var(--text-primary)]">
+                  {item.name}
+                </code>
+                <Badge variant={item.ready ? "live" : "warn"}>
+                  {item.ready ? (
+                    <CheckCircle size={11} weight="fill" aria-hidden="true" />
+                  ) : (
+                    <WarningCircle size={11} weight="fill" aria-hidden="true" />
+                  )}
+                  <span>{item.ready ? t("readyBadge") : t("missingBadge")}</span>
+                </Badge>
               </div>
-              <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
-                {item.desc}
-              </p>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">{item.desc}</p>
             </div>
           ))}
         </div>
@@ -166,96 +178,69 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
             {capabilities.map((cap) => (
               <li
                 key={cap.domain}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border-2 px-4 py-3"
-                style={{
-                  backgroundColor: "var(--bg-surface)",
-                  borderColor: "var(--border-color)",
-                }}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] px-4 py-3"
               >
                 <div>
-                  <span className="font-mono-code text-sm font-bold">{cap.domain}</span>
-                  <span className="ml-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                    ({cap.registrar})
+                  <span className="font-mono-code text-sm font-semibold text-[var(--text-primary)]">
+                    {cap.domain}
                   </span>
+                  <span className="ml-2 text-xs text-[var(--text-muted)]">({cap.registrar})</span>
                 </div>
-                <span
-                  className="rounded-full px-2.5 py-0.5 text-xs font-bold"
-                  style={{
-                    backgroundColor:
-                      cap.mode === "auto-ready"
-                        ? "var(--badge-live-bg)"
-                        : "var(--badge-warn-bg)",
-                    color:
-                      cap.mode === "auto-ready"
-                        ? "var(--badge-live-fg)"
-                        : "var(--badge-warn-fg)",
-                  }}
-                >
+                <Badge variant={cap.mode === "auto-ready" ? "live" : "warn"}>
                   {cap.mode === "auto-ready"
-                    ? t("health.capAutoReady")
+                    ? t("capAutoReady")
                     : cap.mode === "auto-needs-env"
-                      ? t("health.capNeedsEnv")
-                      : t("health.capManualCopy")}
-                </span>
+                      ? t("capNeedsEnv")
+                      : t("capManualCopy")}
+                </Badge>
               </li>
             ))}
           </ul>
         ) : null}
-      </div>
+      </Card>
 
       {/* Per-Subdomain Probe Diagnostics */}
-      <div className="chibi-panel space-y-4 p-5 sm:p-6">
+      <Card className="space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-display text-lg font-extrabold">{t("health.probeTitle")}</h2>
-          <span className="font-mono-code text-xs" style={{ color: "var(--text-muted)" }}>
+          <h2 className="font-editorial text-xl font-semibold text-[var(--text-primary)]">
+            {t("probeTitle")}
+          </h2>
+          <span className="font-mono-code text-xs text-[var(--text-muted)]">
             {data.statusCheckedAt
-              ? t("health.lastScan", {
+              ? t("lastScan", {
                   timestamp: new Date(data.statusCheckedAt)
                     .toISOString()
                     .replace("T", " ")
                     .slice(0, 16),
                 })
-              : t("health.awaitingScan")}
+              : t("awaitingScan")}
           </span>
         </div>
 
         {data.entries.length === 0 ? (
-          <p
-            className="rounded-2xl border-2 px-4 py-4 text-xs sm:text-sm"
-            style={{
-              backgroundColor: "var(--bg-surface)",
-              borderColor: "var(--border-color)",
-              color: "var(--text-muted)",
-            }}
-          >
-            {t("health.emptyProbeText")}
+          <p className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] px-4 py-4 text-xs sm:text-sm text-[var(--text-muted)]">
+            {t("emptyProbeText")}
           </p>
         ) : (
-          <ul role="list" className="space-y-2.5">
+          <ul role="list" className="divide-y divide-[var(--border-color)]">
             {data.entries.map((entry) => (
               <li
                 key={entry.fqdn}
-                className="flex flex-col gap-2 rounded-2xl border-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                style={{
-                  backgroundColor: "var(--bg-surface)",
-                  borderColor: "var(--border-color)",
-                }}
+                className="flex flex-col gap-2 py-3.5 first:pt-1 last:pb-1 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
                   <a
                     href={`https://${entry.fqdn}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono-code text-sm font-bold underline underline-offset-4"
+                    className="font-mono-code text-sm font-semibold text-[var(--text-primary)] underline decoration-[var(--border-strong)] underline-offset-4"
                   >
                     {entry.fqdn}
                   </a>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {entry.health.reason}
-                  </p>
+                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">{entry.health.reason}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                  <span className="font-mono-code text-xs text-[var(--text-muted)]">
                     @{entry.owner.github}
                   </span>
                   <StatusBadge status={entry.health.status} reason={entry.health.reason} />
@@ -264,7 +249,7 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
             ))}
           </ul>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

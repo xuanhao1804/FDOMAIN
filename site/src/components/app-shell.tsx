@@ -1,12 +1,28 @@
 "use client";
 
+import {
+  ArrowUpRight,
+  GlobeHemisphereWest,
+  Heartbeat,
+  House,
+  List,
+  LockSimple,
+  LockSimpleOpen,
+  Plus,
+  PlusCircle,
+  Stack,
+  X,
+} from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { MessageKey } from "@/lib/i18n/messages";
 import type { SiteRootDomainMeta } from "@/lib/registry";
 import { AdminSessionProvider, useAdminSession } from "./admin-context";
-import { LanguageSwitcher, useI18n } from "./i18n-context";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { LanguageSwitcher } from "./ui/language-switcher";
+import { ThemeToggle } from "./ui/theme-toggle";
 
 interface AppShellProps {
   rootDomains: SiteRootDomainMeta[];
@@ -16,55 +32,47 @@ interface AppShellProps {
   children: ReactNode;
 }
 
+type NavKey = "overview" | "directory" | "claim" | "health";
+type TitleKey = "overviewTitle" | "directoryTitle" | "claimTitle" | "healthTitle";
+
 interface NavItem {
   href: string;
-  labelKey: MessageKey;
-  titleKey: MessageKey;
-  icon: ReactNode;
+  labelKey: NavKey;
+  titleKey: TitleKey;
+  renderIcon: (active: boolean) => ReactNode;
 }
 
 const NAV_ITEMS: NavItem[] = [
   {
     href: "/",
-    labelKey: "nav.overview",
-    titleKey: "meta.overviewTitle",
-    icon: (
-      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9.5 10 3.5l7 6V17a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1V9.5Z" />
-      </svg>
+    labelKey: "overview",
+    titleKey: "overviewTitle",
+    renderIcon: (active) => (
+      <House size={17} weight={active ? "duotone" : "bold"} aria-hidden="true" />
     ),
   },
   {
     href: "/directory",
-    labelKey: "nav.directory",
-    titleKey: "meta.directoryTitle",
-    icon: (
-      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="14" height="3.5" rx="1.5" />
-        <rect x="3" y="9.5" width="14" height="3.5" rx="1.5" />
-        <rect x="3" y="15" width="10" height="2.5" rx="1.25" />
-      </svg>
+    labelKey: "directory",
+    titleKey: "directoryTitle",
+    renderIcon: (active) => (
+      <Stack size={17} weight={active ? "duotone" : "bold"} aria-hidden="true" />
     ),
   },
   {
     href: "/claim",
-    labelKey: "nav.claim",
-    titleKey: "meta.claimTitle",
-    icon: (
-      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="10" cy="10" r="7.5" />
-        <path d="M10 6.8v6.4M6.8 10h6.4" />
-      </svg>
+    labelKey: "claim",
+    titleKey: "claimTitle",
+    renderIcon: (active) => (
+      <PlusCircle size={17} weight={active ? "duotone" : "bold"} aria-hidden="true" />
     ),
   },
   {
     href: "/health",
-    labelKey: "nav.health",
-    titleKey: "meta.healthTitle",
-    icon: (
-      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M2.5 10h3.5l2.2-5 3.6 10 2.2-5h3.5" />
-      </svg>
+    labelKey: "health",
+    titleKey: "healthTitle",
+    renderIcon: (active) => (
+      <Heartbeat size={17} weight={active ? "duotone" : "bold"} aria-hidden="true" />
     ),
   },
 ];
@@ -89,45 +97,36 @@ function SidebarContents({
   maxTotalRecords: number;
   onNavigate?: () => void;
 }) {
-  const { t } = useI18n();
+  const t = useTranslations("nav");
+  const tCommon = useTranslations("common");
   const { authenticated, configured, openLoginModal, logout } = useAdminSession();
   const quotaPct = Math.min(100, Math.round((totalDnsRecords / maxTotalRecords) * 100));
   const repoUrl = `https://github.com/${repository}`;
 
   return (
     <div className="flex h-full flex-col justify-between gap-6 p-4">
-      <div className="space-y-5">
+      <div className="space-y-6">
+        {/* Minimal Brand Anchor */}
         <Link
           href="/"
           onClick={onNavigate}
-          className="flex items-center justify-between gap-2 rounded-2xl border-2 px-3.5 py-2.5 no-underline"
-          style={{
-            backgroundColor: "var(--sky)",
-            borderColor: "#24324a",
-            color: "#24324a",
-            boxShadow: "0 3px 0 #24324a",
-          }}
+          className="group flex items-center justify-between gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2.5 no-underline transition-colors hover:border-[var(--border-strong)]"
         >
-          <span className="font-display flex items-center gap-2 text-base font-extrabold">
-            <span
-              aria-hidden="true"
-              className="inline-block h-3 w-3 rounded-full"
-              style={{ backgroundColor: "var(--mango)", border: "2px solid #24324a" }}
-            />
-            FDOMAIN
+          <span className="flex items-center gap-2.5">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]">
+              <GlobeHemisphereWest size={16} weight="duotone" aria-hidden="true" />
+            </span>
+            <span className="text-sm font-bold tracking-tight text-[var(--text-primary)]">
+              FDOMAIN
+            </span>
           </span>
-          <span
-            className="font-mono-code rounded-full border px-2 py-0.5 text-[11px] font-bold"
-            style={{ backgroundColor: "#fffdf6", borderColor: "#24324a" }}
-          >
-            {rootDomains.length === 1
-              ? t("common.domainCountOne", { count: rootDomains.length })
-              : t("common.domainCountMany", { count: rootDomains.length })}
+          <span className="font-mono-code rounded border border-[var(--border-color)] bg-[var(--bg-paper)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">
+            {tCommon("domainCount", { count: rootDomains.length })}
           </span>
         </Link>
 
-        <nav aria-label={t("nav.mainAriaLabel")}>
-          <ul role="list" className="space-y-1.5">
+        <nav aria-label={t("mainAriaLabel")}>
+          <ul role="list" className="space-y-1">
             {NAV_ITEMS.map((item) => {
               const active = isRouteActive(pathname, item.href);
               return (
@@ -136,15 +135,20 @@ function SidebarContents({
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     onClick={onNavigate}
-                    className="chibi-nav-link"
+                    className="editorial-nav-link"
                   >
-                    {item.icon}
+                    <span
+                      className={
+                        active ? "text-[var(--accent-terracotta)]" : "text-[var(--text-muted)]"
+                      }
+                    >
+                      {item.renderIcon(active)}
+                    </span>
                     <span className="flex-1 truncate">{t(item.labelKey)}</span>
                     {active ? (
                       <span
                         aria-hidden="true"
-                        className="inline-block h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: "#24324a" }}
+                        className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-terracotta)]"
                       />
                     ) : null}
                   </Link>
@@ -156,91 +160,72 @@ function SidebarContents({
       </div>
 
       <div className="space-y-3">
-        <div
-          className="rounded-2xl border-2 p-3.5"
-          style={{
-            backgroundColor: "var(--bg-surface)",
-            borderColor: "var(--border-color)",
-            boxShadow: "0 3px 0 var(--shadow-tint)",
-          }}
-        >
-          <div className="flex items-center justify-between gap-2 text-xs font-bold">
-            <span>{t("nav.adminAutoDns")}</span>
-            <span
-              className="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
-              style={{
-                backgroundColor: authenticated ? "var(--badge-live-bg)" : "var(--badge-muted-bg)",
-                color: authenticated ? "var(--badge-live-fg)" : "var(--badge-muted-fg)",
-              }}
-            >
+        {/* Admin Auto-DNS Status Card */}
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-3.5">
+          <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+            <span className="text-[var(--text-primary)]">{t("adminAutoDns")}</span>
+            <Badge variant={authenticated ? "live" : configured ? "neutral" : "warn"}>
               {authenticated
-                ? t("nav.adminUnlocked")
+                ? t("adminUnlocked")
                 : configured
-                  ? t("nav.adminLocked")
-                  : t("nav.adminEnvNeeded")}
-            </span>
+                  ? t("adminLocked")
+                  : t("adminEnvNeeded")}
+            </Badge>
           </div>
           {authenticated ? (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => {
                 void logout();
                 onNavigate?.();
               }}
-              className="chibi-secondary-btn mt-2.5 w-full"
+              className="mt-3 w-full"
             >
-              {t("nav.lockAdminSession")}
-            </button>
+              <LockSimple size={14} weight="bold" aria-hidden="true" />
+              <span>{t("lockAdminSession")}</span>
+            </Button>
           ) : (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => {
                 onNavigate?.();
                 openLoginModal();
               }}
-              className="chibi-secondary-btn mt-2.5 w-full"
+              className="mt-3 w-full"
             >
-              {t("nav.unlockAdminMode")}
-            </button>
+              <LockSimpleOpen size={14} weight="bold" aria-hidden="true" />
+              <span>{t("unlockAdminMode")}</span>
+            </Button>
           )}
         </div>
 
-        <div
-          className="rounded-2xl border-2 p-3.5"
-          style={{
-            backgroundColor: "var(--bg-surface)",
-            borderColor: "var(--border-color)",
-            boxShadow: "0 3px 0 var(--shadow-tint)",
-          }}
-        >
-          <div className="flex items-center justify-between text-xs font-bold">
-            <span>{t("nav.registryQuota")}</span>
-            <span className="tabular-nums font-mono-code">
+        {/* Registry Quota Card */}
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-3.5">
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <span className="text-[var(--text-primary)]">{t("registryQuota")}</span>
+            <span className="tabular-nums font-mono-code text-[var(--text-secondary)]">
               {totalDnsRecords}/{maxTotalRecords}
             </span>
           </div>
-          <div
-            className="mt-2 h-2 w-full overflow-hidden rounded-full border"
-            style={{ backgroundColor: "var(--bg-subtle)", borderColor: "var(--border-color)" }}
-          >
+          <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-subtle)]">
             <div
-              className="h-full"
-              style={{ width: `${quotaPct}%`, backgroundColor: "var(--mint)" }}
+              className="h-full rounded-full bg-[var(--accent-terracotta)]"
+              style={{ width: `${Math.max(quotaPct, totalDnsRecords > 0 ? 4 : 0)}%` }}
             />
           </div>
-          <p className="mt-2 text-[11px]" style={{ color: "var(--text-muted)" }}>
-            {t("nav.quotaCaption")}
-          </p>
+          <p className="mt-2 text-[11px] text-[var(--text-muted)]">{t("quotaCaption")}</p>
         </div>
 
-        <a
-          href={repoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="chibi-secondary-btn w-full"
-        >
-          {t("nav.githubRepo")}
-        </a>
+        <Button asChild variant="ghost" size="sm" className="w-full justify-between px-3">
+          <a href={repoUrl} target="_blank" rel="noopener noreferrer">
+            <span>{t("githubRepo")}</span>
+            <ArrowUpRight size={14} weight="bold" aria-hidden="true" />
+          </a>
+        </Button>
       </div>
     </div>
   );
@@ -261,7 +246,10 @@ function AppShellInner({
   maxTotalRecords,
   children,
 }: AppShellProps) {
-  const { locale, t } = useI18n();
+  const t = useTranslations("nav");
+  const tMeta = useTranslations("meta");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
   const pathname = usePathname() || "/";
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -271,10 +259,9 @@ function AppShellInner({
 
   const currentNav = NAV_ITEMS.find((item) => isRouteActive(pathname, item.href)) ?? NAV_ITEMS[0]!;
 
-  // Keep browser tab title synchronized with active route and chosen language
   useEffect(() => {
-    document.title = t(currentNav.titleKey);
-  }, [currentNav.titleKey, locale, t]);
+    document.title = tMeta(currentNav.titleKey);
+  }, [currentNav.titleKey, locale, tMeta]);
 
   useEffect(() => {
     const drawer = drawerRef.current;
@@ -302,7 +289,10 @@ function AppShellInner({
 
     if (!CSS.supports("animation-timeline: scroll()")) {
       const onScroll = () => {
-        const ratio = Math.max(0, Math.min(1, 1 - scroller.scrollLeft / Math.max(sheet.offsetWidth, 1)));
+        const ratio = Math.max(
+          0,
+          Math.min(1, 1 - scroller.scrollLeft / Math.max(sheet.offsetWidth, 1)),
+        );
         drawer.style.setProperty("--drawer-backdrop", String(ratio));
       };
       scroller.addEventListener("scroll", onScroll, { passive: true });
@@ -341,7 +331,6 @@ function AppShellInner({
     scroller.scrollTo({ left: scroller.offsetWidth, behavior: "auto" });
   }
 
-  // Ensure route change closes mobile drawer cleanly
   useEffect(() => {
     if (drawerRef.current?.open) {
       drawerRef.current.close();
@@ -350,15 +339,11 @@ function AppShellInner({
   }, [pathname]);
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
       {/* Desktop Persistent Sidebar */}
       <aside
-        aria-label={t("nav.sidebarAriaLabel")}
-        className="hidden border-r-2 lg:block"
-        style={{
-          backgroundColor: "var(--sidebar-bg)",
-          borderColor: "var(--border-color)",
-        }}
+        aria-label={t("sidebarAriaLabel")}
+        className="hidden border-r border-[var(--border-color)] bg-[var(--sidebar-bg)] lg:block"
       >
         <div className="sticky top-0 h-dvh overflow-y-auto">
           <SidebarContents
@@ -375,7 +360,7 @@ function AppShellInner({
       <dialog
         ref={drawerRef}
         id="mobile-nav-drawer"
-        aria-label={t("nav.drawerAriaLabel")}
+        aria-label={t("drawerAriaLabel")}
         className="nav-drawer lg:hidden"
         onClick={(e) => {
           if (sheetRef.current && !sheetRef.current.contains(e.target as Node)) {
@@ -391,30 +376,20 @@ function AppShellInner({
       >
         <div ref={scrollerRef} className="nav-drawer-scroller">
           <div ref={sheetRef} className="nav-drawer-sheet">
-            <div
-              className="flex items-center justify-between border-b-2 px-4 py-3"
-              style={{
-                backgroundColor: "var(--header-bg)",
-                borderColor: "var(--border-color)",
-              }}
-            >
-              <span className="font-display text-base font-extrabold" style={{ color: "#24324a" }}>
-                {t("common.menu")}
+            <div className="flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-3">
+              <span className="text-sm font-semibold text-[var(--text-primary)]">
+                {tCommon("menu")}
               </span>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="iconSm"
                 autoFocus
-                aria-label={t("common.closeMenu")}
+                aria-label={tCommon("closeMenu")}
                 onClick={closeDrawer}
-                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 text-sm font-bold"
-                style={{
-                  backgroundColor: "var(--bg-cream)",
-                  borderColor: "#24324a",
-                  color: "#24324a",
-                }}
               >
-                ✕
-              </button>
+                <X size={16} weight="bold" aria-hidden="true" />
+              </Button>
             </div>
 
             <SidebarContents
@@ -432,71 +407,49 @@ function AppShellInner({
       {/* Main Column */}
       <div className="flex min-w-0 flex-col">
         <header
-          className="sticky top-0 z-20 border-b-2"
-          style={{
-            backgroundColor: "var(--header-bg)",
-            borderColor: "var(--border-color)",
-          }}
+          className="sticky top-0 z-20 border-b border-[var(--border-color)] backdrop-blur-md"
+          style={{ backgroundColor: "var(--header-bg)" }}
         >
-          <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-4 py-2.5 sm:gap-3 sm:px-6 lg:px-8">
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 py-2.5 sm:gap-3 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-2.5">
-              <button
+              <Button
                 type="button"
-                aria-label={t("common.openMenu")}
+                variant="outline"
+                size="iconSm"
+                aria-label={tCommon("openMenu")}
                 aria-expanded={drawerOpen}
                 aria-controls="mobile-nav-drawer"
                 onClick={openDrawer}
-                className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-2 lg:hidden"
-                style={{
-                  backgroundColor: "var(--bg-cream)",
-                  borderColor: "#24324a",
-                  color: "#24324a",
-                  boxShadow: "0 2px 0 #24324a",
-                }}
+                className="lg:hidden"
               >
-                <svg
-                  aria-hidden="true"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                >
-                  <path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13" />
-                </svg>
-              </button>
+                <List size={18} weight="bold" aria-hidden="true" />
+              </Button>
 
-              <span className="font-display truncate text-base font-extrabold sm:text-lg" style={{ color: "#24324a" }}>
+              <span className="truncate text-sm font-semibold text-[var(--text-primary)]">
                 {t(currentNav.labelKey)}
               </span>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
-              <span
-                className="font-mono-code hidden rounded-full border-2 px-3 py-1 text-xs font-bold md:inline-block lg:hidden"
-                style={{
-                  backgroundColor: "var(--bg-surface)",
-                  borderColor: "#24324a",
-                  color: "#24324a",
-                }}
-              >
-                {rootDomains.map((d) => d.domain).join(" · ")}
-              </span>
-
-              <LanguageSwitcher compact />
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              <ThemeToggle />
+              <LanguageSwitcher />
 
               {!isRouteActive(pathname, "/claim") ? (
-                <Link href="/claim" className="chibi-cta whitespace-nowrap">
-                  {t("nav.claimCtaShort")}
-                  <span className="hidden sm:inline">{t("nav.claimCtaSuffix")}</span>
-                </Link>
+                <Button asChild size="sm">
+                  <Link href="/claim">
+                    <Plus size={14} weight="bold" aria-hidden="true" />
+                    <span className="sm:hidden">{t("claimCtaShort")}</span>
+                    <span className="hidden sm:inline">{t("claimCtaFull")}</span>
+                  </Link>
+                </Button>
               ) : (
-                <Link href="/directory" className="chibi-secondary-btn whitespace-nowrap">
-                  <span className="hidden sm:inline">{t("nav.viewDirectoryPrefix")}</span>
-                  {t("nav.viewDirectoryLabel")}
-                </Link>
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/directory">
+                    <Stack size={14} weight="duotone" aria-hidden="true" />
+                    <span className="sm:hidden">{t("viewDirectoryShort")}</span>
+                    <span className="hidden sm:inline">{t("viewDirectoryFull")}</span>
+                  </Link>
+                </Button>
               )}
             </div>
           </div>
@@ -505,7 +458,7 @@ function AppShellInner({
         <main
           id="registry-main"
           tabIndex={-1}
-          className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8"
+          className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8"
         >
           {children}
         </main>

@@ -1,268 +1,351 @@
 "use client";
 
+import {
+  ArrowRight,
+  CloudCheck,
+  CopySimple,
+  GlobeHemisphereWest,
+  Heartbeat,
+  Plus,
+  Stack,
+  TerminalWindow,
+} from "@phosphor-icons/react";
 import Link from "next/link";
-import { getLocalizedDomainNote } from "@/lib/i18n/messages";
+import { useTranslations } from "next-intl";
 import type { SiteRegistryPayload } from "@/lib/registry";
-import { useI18n } from "./i18n-context";
 import { StatusBadge } from "./status-badge";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 
 export function OverviewView({ data }: { data: SiteRegistryPayload }) {
-  const { t } = useI18n();
+  const t = useTranslations("overview");
+  const tDomains = useTranslations("domains");
 
   const liveCount = data.entries.filter((e) => e.health.status === "live").length;
   const warnCount = data.entries.filter((e) => e.health.status === "warn").length;
   const deadCount = data.entries.filter((e) => e.health.status === "dead").length;
+  const autoApiCount = data.rootDomains.filter(
+    (d) => d.dnsProvider !== "namecheap-manual",
+  ).length;
   const previewEntries = data.entries.slice(0, 4);
 
   function providerBadgeLabel(provider: string): string {
-    if (provider === "namecom") return t("domains.providerNamecomAuto");
-    if (provider === "cloudflare-api") return t("domains.providerCloudflareAuto");
-    if (provider === "cloudflare-gitops") return t("domains.providerCloudflareGitops");
-    return t("domains.providerNamecheapManual");
+    if (provider === "namecom") return tDomains("providerNamecomAuto");
+    if (provider === "cloudflare-api") return tDomains("providerCloudflareAuto");
+    if (provider === "cloudflare-gitops") return tDomains("providerCloudflareGitops");
+    return tDomains("providerNamecheapManual");
+  }
+
+  function localizedDomainNote(
+    dnsProvider: string,
+    registrar: string,
+    rawNote?: string,
+  ): string {
+    if (dnsProvider === "namecom" && (!rawNote || rawNote.includes("Name.com Core API"))) {
+      return tDomains("noteNamecom");
+    }
+    if (
+      dnsProvider === "namecheap-manual" &&
+      (!rawNote || rawNote.includes("Namecheap BasicDNS"))
+    ) {
+      return tDomains("noteNamecheap");
+    }
+    return rawNote ?? tDomains("noteFallback", { registrar });
   }
 
   return (
-    <div className="reveal-block space-y-6">
-      {/* Hero Lobby Card */}
-      <section
-        aria-labelledby="overview-hero-title"
-        className="chibi-panel relative overflow-hidden px-6 py-6 sm:px-8 sm:py-8"
-      >
-        <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
-          <div className="flex-1 space-y-4 text-center md:text-left">
-            <span
-              className="inline-block rounded-full border px-3 py-0.5 text-xs font-bold"
-              style={{
-                backgroundColor: "var(--sky-soft)",
-                borderColor: "#24324a",
-                color: "#24324a",
-              }}
-            >
-              {t("overview.heroBadge", {
-                domains: data.rootDomains.map((d) => d.domain).join(" · "),
-              })}
-            </span>
+    <div className="reveal-block space-y-8">
+      {/* Asymmetrical Editorial Hero Bento */}
+      <section aria-labelledby="overview-hero-title" className="editorial-hero-card">
+        <div className="relative z-10 grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(240px,0.75fr)] lg:items-center lg:gap-10">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2">
+              <Badge variant="terracotta">
+                <GlobeHemisphereWest size={12} weight="duotone" aria-hidden="true" />
+                <span>{t("heroEyebrow")}</span>
+              </Badge>
+              <span className="font-mono-code hidden text-xs text-[var(--text-muted)] sm:inline">
+                {data.rootDomains.map((d) => d.domain).join(" · ")}
+              </span>
+            </div>
 
-            <h1 id="overview-hero-title" className="font-display text-3xl font-extrabold sm:text-4xl">
-              {t("overview.heroTitle")}
+            <h1
+              id="overview-hero-title"
+              className="font-editorial text-3xl font-semibold text-[var(--text-primary)] sm:text-4xl lg:text-[2.6rem]"
+            >
+              {t("heroTitle")}
             </h1>
 
-            <p className="mx-auto max-w-xl text-sm sm:text-base md:mx-0" style={{ color: "var(--text-muted)" }}>
-              {t("overview.heroSubtitle")}
+            <p className="max-w-2xl text-sm leading-relaxed text-[var(--text-muted)] sm:text-[15px]">
+              {t("heroSubtitle")}
             </p>
 
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-1 md:justify-start">
-              <Link href="/claim" className="chibi-cta">
-                {t("overview.heroClaimCta")}
-              </Link>
-              <Link href="/directory" className="chibi-secondary-btn">
-                {t("overview.heroBrowseCta", { count: data.entries.length })}
-              </Link>
+            <div className="flex flex-wrap items-center gap-2.5 pt-2">
+              <Button asChild size="lg">
+                <Link href="/claim">
+                  <Plus size={16} weight="bold" aria-hidden="true" />
+                  <span>{t("heroClaimCta")}</span>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="lg">
+                <Link href="/directory">
+                  <span>{t("heroBrowseCta", { count: data.entries.length })}</span>
+                  <ArrowRight size={15} weight="bold" aria-hidden="true" />
+                </Link>
+              </Button>
             </div>
           </div>
 
-          <div className="shrink-0">
-            <img
-              src="/images/chibi-courier.png"
-              alt={t("overview.heroMascotAlt")}
-              width={160}
-              height={265}
-              className="h-44 w-auto select-none sm:h-52"
-            />
+          {/* Architectural Metric Stack */}
+          <div className="divide-y divide-[var(--border-color)] rounded-xl border border-[var(--border-color)] bg-[var(--bg-paper)]">
+            <div className="flex items-center justify-between px-4 py-3.5">
+              <span className="text-xs font-medium text-[var(--text-muted)]">
+                {t("statDomainsLabel")}
+              </span>
+              <span className="font-mono-code tabular-nums text-lg font-bold text-[var(--text-primary)]">
+                {data.rootDomains.length}
+              </span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3.5">
+              <span className="text-xs font-medium text-[var(--text-muted)]">
+                {t("statRecordsLabel")}
+              </span>
+              <span className="font-mono-code tabular-nums text-lg font-bold text-[var(--text-primary)]">
+                {data.totalDnsRecords}
+                <span className="text-xs font-normal text-[var(--text-muted)]">
+                  /{data.limits.maxTotalRecords}
+                </span>
+              </span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3.5">
+              <span className="text-xs font-medium text-[var(--text-muted)]">
+                {t("statProvidersLabel")}
+              </span>
+              <span className="font-mono-code tabular-nums text-lg font-bold text-[var(--badge-live-fg)]">
+                {autoApiCount}
+              </span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Available Root Domains Showcase */}
-      <section aria-labelledby="available-domains-heading" className="space-y-3">
+      {/* Available Root Domains Bento */}
+      <section aria-labelledby="available-domains-heading" className="space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="available-domains-heading" className="font-display text-lg font-extrabold">
-            {t("overview.availableHeading", { count: data.rootDomains.length })}
+          <h2
+            id="available-domains-heading"
+            className="font-editorial text-xl font-semibold text-[var(--text-primary)]"
+          >
+            {t("availableHeading")}
           </h2>
-          <Link href="/claim" className="text-xs font-bold underline underline-offset-4">
-            {t("overview.openBuilderLink")}
+          <Link
+            href="/claim"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--text-secondary)] underline decoration-[var(--border-strong)] underline-offset-4 transition-colors hover:text-[var(--text-primary)]"
+          >
+            <span>{t("openBuilderLink")}</span>
+            <ArrowRight size={13} weight="bold" aria-hidden="true" />
           </Link>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {data.rootDomains.map((dom) => {
+          {data.rootDomains.map((dom, idx) => {
             const isAuto = dom.dnsProvider !== "namecheap-manual";
             return (
-              <div
+              <Card
                 key={dom.domain}
-                className="chibi-row-card flex flex-col justify-between gap-4 p-5"
+                interactive
+                className="stagger-item flex flex-col justify-between gap-5 p-6"
+                style={{ ["--stagger-index" as string]: idx }}
               >
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-mono-code text-lg font-extrabold">
-                      *.{dom.domain}
-                    </span>
-                    <span
-                      className="rounded-full border px-2.5 py-0.5 text-xs font-bold"
-                      style={{
-                        backgroundColor: isAuto ? "var(--badge-live-bg)" : "var(--badge-warn-bg)",
-                        borderColor: isAuto ? "var(--badge-live-fg)" : "var(--badge-warn-fg)",
-                        color: isAuto ? "var(--badge-live-fg)" : "var(--badge-warn-fg)",
-                      }}
-                    >
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
+                        style={{
+                          backgroundColor: isAuto
+                            ? "var(--badge-live-bg)"
+                            : "var(--badge-warn-bg)",
+                          borderColor: isAuto
+                            ? "var(--badge-live-border)"
+                            : "var(--badge-warn-border)",
+                          color: isAuto ? "var(--badge-live-fg)" : "var(--badge-warn-fg)",
+                        }}
+                      >
+                        {isAuto ? (
+                          <CloudCheck size={18} weight="duotone" aria-hidden="true" />
+                        ) : (
+                          <CopySimple size={18} weight="duotone" aria-hidden="true" />
+                        )}
+                      </span>
+                      <span className="font-mono-code text-base font-bold text-[var(--text-primary)]">
+                        *.{dom.domain}
+                      </span>
+                    </div>
+                    <Badge variant={isAuto ? "live" : "warn"}>
                       {providerBadgeLabel(dom.dnsProvider)}
-                    </span>
+                    </Badge>
                   </div>
-                  <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                    {getLocalizedDomainNote(t, dom.dnsProvider, dom.registrar, dom.note)}
+
+                  <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                    {localizedDomainNote(dom.dnsProvider, dom.registrar, dom.note)}
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-color)] pt-4">
                   <Link
                     href={`/directory?domain=${encodeURIComponent(dom.domain)}`}
-                    className="text-xs font-bold underline underline-offset-4"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   >
-                    {t("overview.inspectRecordsLink")}
+                    <span>{t("inspectRecordsLink")}</span>
+                    <ArrowRight size={12} weight="bold" aria-hidden="true" />
                   </Link>
-                  <Link
-                    href={`/claim?domain=${encodeURIComponent(dom.domain)}`}
-                    className="chibi-secondary-btn"
-                  >
-                    {t("overview.claimOnDomainCta", { domain: dom.domain })}
-                  </Link>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/claim?domain=${encodeURIComponent(dom.domain)}`}>
+                      <span>{t("claimOnDomainCta", { domain: dom.domain })}</span>
+                    </Link>
+                  </Button>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
       </section>
 
-      {/* Quick Action Cards */}
+      {/* 3-Column Editorial Capability Grid */}
       <section className="grid gap-4 md:grid-cols-3">
-        <Link
-          href="/directory"
-          className="chibi-row-card flex flex-col justify-between gap-3 p-5 no-underline"
-        >
-          <div className="space-y-1.5">
-            <span
-              className="inline-block rounded-full border px-2.5 py-0.5 text-xs font-bold"
-              style={{
-                backgroundColor: "var(--sky-soft)",
-                borderColor: "var(--border-color)",
-                color: "#24324a",
-              }}
-            >
-              {t("overview.cardLookupBadge")}
+        <Link href="/directory" className="group no-underline">
+          <Card
+            interactive
+            className="stagger-item flex h-full flex-col justify-between gap-4 p-6"
+            style={{ ["--stagger-index" as string]: 0 }}
+          >
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--badge-info-border)] bg-[var(--badge-info-bg)] text-[var(--badge-info-fg)]">
+                  <Stack size={18} weight="duotone" aria-hidden="true" />
+                </span>
+                <Badge variant="info">{t("cardLookupBadge")}</Badge>
+              </div>
+              <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                {t("cardLookupTitle")}
+              </h2>
+              <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                {t("cardLookupDesc")}
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-terracotta)]">
+              <span>{t("cardLookupCta")}</span>
+              <ArrowRight size={13} weight="bold" aria-hidden="true" />
             </span>
-            <h2 className="font-display text-lg font-extrabold">{t("overview.cardLookupTitle")}</h2>
-            <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              {t("overview.cardLookupDesc")}
-            </p>
-          </div>
-          <span className="text-xs font-bold underline underline-offset-4">
-            {t("overview.cardLookupCta")}
-          </span>
+          </Card>
         </Link>
 
-        <Link
-          href="/claim"
-          className="chibi-row-card flex flex-col justify-between gap-3 p-5 no-underline"
-        >
-          <div className="space-y-1.5">
-            <span
-              className="inline-block rounded-full border px-2.5 py-0.5 text-xs font-bold"
-              style={{
-                backgroundColor: "var(--badge-warn-bg)",
-                borderColor: "var(--badge-warn-fg)",
-                color: "var(--badge-warn-fg)",
-              }}
-            >
-              {t("overview.cardStudioBadge")}
+        <Link href="/claim" className="group no-underline">
+          <Card
+            interactive
+            className="stagger-item flex h-full flex-col justify-between gap-4 p-6"
+            style={{ ["--stagger-index" as string]: 1 }}
+          >
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--badge-warn-border)] bg-[var(--badge-warn-bg)] text-[var(--badge-warn-fg)]">
+                  <TerminalWindow size={18} weight="duotone" aria-hidden="true" />
+                </span>
+                <Badge variant="warn">{t("cardStudioBadge")}</Badge>
+              </div>
+              <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                {t("cardStudioTitle")}
+              </h2>
+              <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                {t("cardStudioDesc")}
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-terracotta)]">
+              <span>{t("cardStudioCta")}</span>
+              <ArrowRight size={13} weight="bold" aria-hidden="true" />
             </span>
-            <h2 className="font-display text-lg font-extrabold">{t("overview.cardStudioTitle")}</h2>
-            <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              {t("overview.cardStudioDesc")}
-            </p>
-          </div>
-          <span className="text-xs font-bold underline underline-offset-4">
-            {t("overview.cardStudioCta")}
-          </span>
+          </Card>
         </Link>
 
-        <Link
-          href="/health"
-          className="chibi-row-card flex flex-col justify-between gap-3 p-5 no-underline"
-        >
-          <div className="space-y-1.5">
-            <span
-              className="inline-block rounded-full border px-2.5 py-0.5 text-xs font-bold"
-              style={{
-                backgroundColor: "var(--badge-live-bg)",
-                borderColor: "var(--badge-live-fg)",
-                color: "var(--badge-live-fg)",
-              }}
-            >
-              {t("overview.cardMonitorBadge")}
+        <Link href="/health" className="group no-underline">
+          <Card
+            interactive
+            className="stagger-item flex h-full flex-col justify-between gap-4 p-6"
+            style={{ ["--stagger-index" as string]: 2 }}
+          >
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--badge-live-border)] bg-[var(--badge-live-bg)] text-[var(--badge-live-fg)]">
+                  <Heartbeat size={18} weight="duotone" aria-hidden="true" />
+                </span>
+                <Badge variant="live">{t("cardMonitorBadge")}</Badge>
+              </div>
+              <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                {t("cardMonitorTitle")}
+              </h2>
+              <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                {t("cardMonitorDesc", {
+                  live: liveCount,
+                  warn: warnCount,
+                  dead: deadCount,
+                })}
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-terracotta)]">
+              <span>{t("cardMonitorCta")}</span>
+              <ArrowRight size={13} weight="bold" aria-hidden="true" />
             </span>
-            <h2 className="font-display text-lg font-extrabold">{t("overview.cardMonitorTitle")}</h2>
-            <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              {t("overview.cardMonitorDesc", {
-                live: liveCount,
-                warn: warnCount,
-                dead: deadCount,
-              })}
-            </p>
-          </div>
-          <span className="text-xs font-bold underline underline-offset-4">
-            {t("overview.cardMonitorCta")}
-          </span>
+          </Card>
         </Link>
       </section>
 
-      {/* Compact Recent Subdomains Preview */}
-      <section aria-labelledby="recent-heading" className="chibi-row-card space-y-3 p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <h2 id="recent-heading" className="font-display text-lg font-extrabold">
-            {t("overview.recentHeading")}
+      {/* Compact Registry Entries */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between gap-3 pb-4">
+          <h2 id="recent-heading" className="font-editorial text-xl font-semibold text-[var(--text-primary)]">
+            {t("recentHeading")}
           </h2>
-          <Link href="/directory" className="text-xs font-bold underline underline-offset-4">
-            {t("overview.viewAllLink")}
+          <Link
+            href="/directory"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          >
+            <span>{t("viewAllLink")}</span>
+            <ArrowRight size={12} weight="bold" aria-hidden="true" />
           </Link>
         </div>
 
         {previewEntries.length === 0 ? (
-          <div
-            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 px-4 py-4 text-xs sm:text-sm"
-            style={{
-              backgroundColor: "var(--bg-subtle)",
-              borderColor: "var(--border-color)",
-              color: "var(--text-muted)",
-            }}
-          >
-            <span>{t("overview.emptyRegistryText")}</span>
-            <Link href="/claim" className="chibi-secondary-btn shrink-0">
-              {t("overview.emptyRegistryCta")}
-            </Link>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] px-4 py-4 text-xs sm:text-sm text-[var(--text-muted)]">
+            <span>{t("emptyRegistryText")}</span>
+            <Button asChild variant="outline" size="sm" className="shrink-0">
+              <Link href="/claim">
+                <Plus size={14} weight="bold" aria-hidden="true" />
+                <span>{t("emptyRegistryCta")}</span>
+              </Link>
+            </Button>
           </div>
         ) : (
-          <ul role="list" className="divide-y" style={{ borderColor: "var(--border-color)" }}>
+          <ul role="list" className="divide-y divide-[var(--border-color)]">
             {previewEntries.map((entry) => (
               <li
                 key={entry.fqdn}
-                className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-1 last:pb-1"
-                style={{ borderColor: "var(--shadow-tint)" }}
+                className="flex flex-wrap items-center justify-between gap-3 py-3.5 first:pt-1 last:pb-1"
               >
                 <div className="min-w-0">
                   <a
                     href={`https://${entry.fqdn}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono-code text-sm font-bold underline underline-offset-4"
+                    className="font-mono-code text-sm font-semibold text-[var(--text-primary)] underline decoration-[var(--border-strong)] underline-offset-4 hover:text-[var(--accent-terracotta)]"
                   >
                     {entry.fqdn}
                   </a>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {entry.description}
-                  </p>
+                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">{entry.description}</p>
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                  <span className="font-mono-code text-xs text-[var(--text-muted)]">
                     @{entry.owner.github}
                   </span>
                   <StatusBadge status={entry.health.status} reason={entry.health.reason} />
@@ -271,7 +354,7 @@ export function OverviewView({ data }: { data: SiteRegistryPayload }) {
             ))}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

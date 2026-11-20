@@ -1,38 +1,68 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
+import { Be_Vietnam_Pro, JetBrains_Mono, Newsreader } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { AppShell } from "@/components/app-shell";
-import { I18nProvider } from "@/components/i18n-context";
-import { getServerI18n } from "@/lib/i18n/server";
 import { loadSiteRegistryData } from "@/lib/registry";
 import "./globals.css";
 
+const newsreader = Newsreader({
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-newsreader",
+  display: "swap",
+});
+
+const beVietnamPro = Be_Vietnam_Pro({
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-be-vietnam",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-jetbrains",
+  display: "swap",
+});
+
 export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getServerI18n();
+  const t = await getTranslations("meta");
   return {
-    title: t("meta.siteTitle"),
-    description: t("meta.siteDescription"),
+    title: t("siteTitle"),
+    description: t("siteDescription"),
   };
 }
 
-export const viewport: Viewport = {
-  colorScheme: "light dark",
-};
+const COLOR_SCHEME_INIT_SCRIPT = `try{var s=localStorage.getItem("color-scheme");if(s==="light"||s==="dark"){var m=document.querySelector('meta[name="color-scheme"]');if(m)m.content=s;}}catch(e){}`;
 
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [{ locale, t }, data] = await Promise.all([
-    getServerI18n(),
-    Promise.resolve(loadSiteRegistryData()),
+  const [locale, messages, tCommon] = await Promise.all([
+    getLocale(),
+    getMessages(),
+    getTranslations("common"),
   ]);
+  const data = loadSiteRegistryData();
 
   return (
-    <html lang={locale}>
+    <html
+      lang={locale}
+      className={`${newsreader.variable} ${beVietnamPro.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        <meta name="color-scheme" content="light dark" />
+        <script dangerouslySetInnerHTML={{ __html: COLOR_SCHEME_INIT_SCRIPT }} />
+      </head>
       <body>
-        <I18nProvider initialLocale={locale}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
           <a href="#registry-main" className="skip-link">
-            {t("common.skipToContent")}
+            {tCommon("skipToContent")}
           </a>
           <AppShell
             rootDomains={data.rootDomains}
@@ -42,7 +72,7 @@ export default async function RootLayout({
           >
             {children}
           </AppShell>
-        </I18nProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );
