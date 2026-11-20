@@ -8,6 +8,7 @@ site/out/
 site/next-env.d.ts
 site/public/data/
 site/src/data/registry.json
+*.tsbuildinfo
 dist/
 coverage/
 
