@@ -8,7 +8,7 @@
   - `npm run typecheck` & `npm --prefix site run typecheck`: passed.
   - `npm run validate`: 2 subdomain files valid, 2/180 DNS records.
   - `npm run site:build`: exported multi-domain `registry.json` and built all dynamic routes (`/claim`, `/directory`, `/api/*`) + static pages (`/`, `/health`, `/icon.svg`).
-  - Browser verification (`http://localhost:3000`): Desktop `1440x900` and Mobile `390x844` across `/`, `/claim?domain=vinamuse.store`, `/directory`, and `/health` — verified dynamic `.vinamuse.store` / `.harrylee.dev` suffix switcher, deferred inline validation, reserved checkbox, live DoH lookup HTTP `200`, Admin `<dialog>` modal (`Esc` + show/hide toggle), mobile drawer, zero horizontal overflow, and zero console/network errors (`prefers-color-scheme: dark` emulation unavailable in headless webview).
+  - Browser verification (`http://localhost:3000`): Desktop `1440x900` and Mobile `390x844` across `/`, `/claim`, `/directory`, and `/health` — verified zero horizontal overflow, zero console/network errors, `input.sr-radio` stays `1x1` clipped (zero pop-in on click/focus), `CopyButton` fixed `84x30`, `directory` DoH slot zero vertical shift, and `0px` delta across `.harrylee.dev` ↔ `.vinamuse.store`, all 4 presets (`Vercel`, `GitHub Pages`, `Netlify`, `VPS (IPv4)`), invalid `-bad` + blur inline error, and long subdomains on `/claim` (`prefers-color-scheme: dark` emulation unavailable in headless webview).
 - **External User Setup Needed on Vercel**:
   - Set Vercel Project `fdomain` → **Settings → General → Root Directory** = `site` (Framework Preset = `Next.js`).
   - Add Environment Variables: `ADMIN_PASSWORD`, `SESSION_SECRET`, `NAMECOM_USERNAME`, `NAMECOM_TOKEN` (and optional `CLOUDFLARE_API_TOKEN`).

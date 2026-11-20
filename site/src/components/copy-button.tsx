@@ -66,6 +66,7 @@ export function CopyButton({ value, label, showText = false }: CopyButtonProps) 
       <button
         type="button"
         className="copy-btn"
+        style={showText ? { minInlineSize: "5.25rem" } : undefined}
         aria-label={showText ? undefined : label}
         data-copied={state === "copied" ? "" : undefined}
         data-failed={state === "failed" ? "" : undefined}

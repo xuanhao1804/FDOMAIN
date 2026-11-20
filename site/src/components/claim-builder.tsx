@@ -40,7 +40,7 @@ const PRESET_DEFAULTS: Record<
     label: "GitHub Pages",
     recordType: "CNAME",
     target: "your-username.github.io",
-    hint: "Set custom domain in Repository → Settings → Pages.",
+    hint: "Set custom domain in GitHub Repository → Settings → Pages.",
   },
   netlify: {
     label: "Netlify",
@@ -127,6 +127,12 @@ export function ClaimBuilder({
   const isManualOnly = activeDomainMeta.dnsProvider === "namecheap-manual";
   const recordType = PRESET_DEFAULTS[preset].recordType;
 
+  // Fixed width computed from longest configured root domain + leading dot + px-3 padding
+  const maxSuffixChars = useMemo(
+    () => Math.max(...rootDomains.map((d) => d.domain.length), 14) + 1,
+    [rootDomains],
+  );
+
   function handlePresetChange(next: HostPreset) {
     setPreset(next);
     const meta = PRESET_DEFAULTS[next];
@@ -147,18 +153,15 @@ export function ClaimBuilder({
     : null;
   const labelInvalidFormat = trimmedLabel.length > 0 && !isValidSubdomainLabel(trimmedLabel);
   const labelEmpty = trimmedLabel.length === 0;
-  const labelError =
-    labelEmpty
-      ? "Enter a subdomain label (e.g. blog, api, docs)."
-      : labelInvalidFormat
-        ? "Use lowercase letters, numbers, hyphens, or dots (no leading/trailing hyphen)."
-        : hardLockReason;
+  const labelError = labelEmpty
+    ? "Enter a subdomain label (e.g. blog, api, docs)."
+    : labelInvalidFormat
+      ? "Use lowercase letters, numbers, hyphens, or dots (no leading/trailing hyphen)."
+      : hardLockReason;
 
   const trimmedTarget = target.trim();
   const targetValid =
-    recordType === "A"
-      ? isValidIpv4(trimmedTarget)
-      : isValidCnameTarget(trimmedTarget);
+    recordType === "A" ? isValidIpv4(trimmedTarget) : isValidCnameTarget(trimmedTarget);
   const targetError = !trimmedTarget
     ? `Enter a valid ${recordType} target.`
     : !targetValid
@@ -170,8 +173,7 @@ export function ClaimBuilder({
   const showLabelError = Boolean(labelError && (labelBlurred || submitAttempted));
   const showTargetError = Boolean(targetError && (targetBlurred || submitAttempted));
 
-  const cleanLabel =
-    isValidSubdomainLabel(trimmedLabel) ? trimmedLabel : "my-app";
+  const cleanLabel = isValidSubdomainLabel(trimmedLabel) ? trimmedLabel : "my-app";
   const fqdn = `${cleanLabel}.${activeDomainMeta.domain}`;
   const isReservedOnly =
     !hardLockReason && isReservedSubdomainLabel(cleanLabel, reservedLabels);
@@ -185,8 +187,8 @@ export function ClaimBuilder({
         recordType,
         target: trimmedTarget || PRESET_DEFAULTS[preset].target,
         vercelVerify,
-        extraName,
-        extraTxt,
+        extraName: preset === "vercel" ? undefined : extraName,
+        extraTxt: preset === "vercel" ? undefined : extraTxt,
       }),
     [
       activeDomainMeta.domain,
@@ -217,7 +219,7 @@ export function ClaimBuilder({
     gitPayload.vercelVerify = [vercelVerify.trim()];
   }
   const normalizedExtra = extraName ? normalizeExtraPrefix(extraName) : null;
-  if (normalizedExtra && extraTxt.trim()) {
+  if (preset !== "vercel" && normalizedExtra && extraTxt.trim()) {
     gitPayload.extra = { [normalizedExtra]: { TXT: [extraTxt.trim()] } };
   }
   const jsonOutput = `${JSON.stringify(gitPayload, null, 2)}\n`;
@@ -243,7 +245,7 @@ export function ClaimBuilder({
     if (isReservedOnly && !allowReserved) {
       setApplyFeedback({
         kind: "error",
-        text: `Check the confirmation box below before applying reserved label "${cleanLabel}".`,
+        text: `Check the confirmation box before applying reserved label "${cleanLabel}".`,
       });
       return;
     }
@@ -263,9 +265,9 @@ export function ClaimBuilder({
           label: cleanLabel,
           recordType,
           target: cleanTarget,
-          vercelVerify: vercelVerify.trim() || undefined,
-          extraName: extraName.trim() || undefined,
-          extraTxt: extraTxt.trim() || undefined,
+          vercelVerify: preset === "vercel" ? vercelVerify.trim() || undefined : undefined,
+          extraName: preset !== "vercel" ? extraName.trim() || undefined : undefined,
+          extraTxt: preset !== "vercel" ? extraTxt.trim() || undefined : undefined,
           allowReserved,
         }),
       });
@@ -338,20 +340,16 @@ export function ClaimBuilder({
 
   return (
     <div className="reveal-block space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-extrabold sm:text-3xl">
-            Instant Subdomain Studio
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-            Choose an available domain, type your subdomain with live{" "}
-            <code className="font-mono-code font-semibold">.{activeDomainMeta.domain}</code>{" "}
-            suffix, then apply directly via API or copy rows for Namecheap.
-          </p>
-        </div>
+      <div>
+        <h1 className="font-display text-2xl font-extrabold sm:text-3xl">
+          Instant Subdomain Studio
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+          Select one of your available root domains, enter a subdomain prefix, and apply DNS live or copy the generated rows.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
         {/* Left: Form Studio */}
         <form
           onSubmit={handleCreateLiveDns}
@@ -363,12 +361,12 @@ export function ClaimBuilder({
             1. Configure Subdomain
           </h2>
 
-          {/* Root Domain Selector (2-5 visible radio cards) */}
+          {/* Root Domain Selector (consistent structure & fixed card heights) */}
           <fieldset className="min-w-0 space-y-2.5">
             <legend className="text-xs font-bold uppercase tracking-wide">
               Available Root Domains ({rootDomains.length})
             </legend>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2">
               {rootDomains.map((dom) => {
                 const selected =
                   dom.domain.toLowerCase() === activeDomainMeta.domain.toLowerCase();
@@ -382,7 +380,7 @@ export function ClaimBuilder({
                   <label
                     key={dom.domain}
                     htmlFor={inputId}
-                    className="flex min-w-0 cursor-pointer flex-col justify-between gap-2 rounded-2xl border-2 p-3.5 transition-transform active:scale-[0.99]"
+                    className="choice-card flex min-w-0 cursor-pointer flex-col justify-between gap-2 rounded-2xl border-2 p-3.5 transition-colors"
                     style={{
                       backgroundColor: selected ? "var(--sky-soft)" : "var(--bg-surface)",
                       borderColor: selected ? "#24324a" : "var(--border-color)",
@@ -402,14 +400,14 @@ export function ClaimBuilder({
                         setApplyFeedback(null);
                         setDohResult(null);
                       }}
-                      className="visually-hidden"
+                      className="sr-radio"
                     />
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-mono-code text-sm font-extrabold">
+                    <div className="space-y-1.5">
+                      <span className="font-mono-code block truncate text-sm font-extrabold">
                         .{dom.domain}
                       </span>
                       <span
-                        className="rounded-full border px-2 py-0.5 text-[11px] font-bold"
+                        className="inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
                         style={{
                           backgroundColor: pill.isAuto
                             ? "var(--badge-live-bg)"
@@ -426,7 +424,7 @@ export function ClaimBuilder({
                       </span>
                     </div>
                     <span
-                      className="text-xs leading-snug"
+                      className="line-clamp-2 min-h-[2.25rem] text-xs leading-snug"
                       style={{ color: selected ? "#24324a" : "var(--text-muted)" }}
                     >
                       {dom.note ?? `${dom.registrar} zone`}
@@ -437,15 +435,11 @@ export function ClaimBuilder({
             </div>
           </fieldset>
 
-          {/* Subdomain Input + Dynamic Right-Aligned Domain Suffix */}
+          {/* Subdomain Input + Fixed-Width Right-Aligned Domain Suffix */}
           <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="claim-label" className="text-xs font-bold uppercase tracking-wide">
               Subdomain name
             </label>
-            <p id="claim-label-hint" className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Type only the prefix — the <code className="font-mono-code">.{activeDomainMeta.domain}</code>{" "}
-              suffix updates automatically.
-            </p>
             <div
               className="flex min-w-0 items-center overflow-hidden rounded-xl border-2"
               style={{
@@ -477,8 +471,9 @@ export function ClaimBuilder({
                 className="chibi-input font-mono-code min-h-11 min-w-0 w-full flex-1 bg-transparent px-3 text-base sm:text-sm"
               />
               <span
-                className="font-mono-code shrink-0 border-l-2 px-3 py-2.5 text-xs font-bold"
+                className="font-mono-code shrink-0 truncate border-l-2 px-3 py-2.5 text-center text-xs font-bold"
                 style={{
+                  width: `min(48%, calc(${maxSuffixChars}ch + 2rem))`,
                   backgroundColor: "var(--bg-subtle)",
                   borderColor: "var(--border-color)",
                   color: "var(--text-primary)",
@@ -487,20 +482,27 @@ export function ClaimBuilder({
                 .{activeDomainMeta.domain}
               </span>
             </div>
-            {showLabelError && labelError ? (
-              <p
-                id="claim-label-error"
-                className="text-xs font-bold"
-                style={{ color: "var(--badge-dead-fg)" }}
-              >
-                Error: {labelError}
-              </p>
-            ) : null}
+            {/* Single fixed-height helper/error slot (no layout shift on blur/error) */}
+            <div className="min-h-[2.25rem] sm:min-h-[1.25rem] text-xs leading-snug">
+              {showLabelError && labelError ? (
+                <p
+                  id="claim-label-error"
+                  className="font-bold"
+                  style={{ color: "var(--badge-dead-fg)" }}
+                >
+                  Error: {labelError}
+                </p>
+              ) : (
+                <p id="claim-label-hint" style={{ color: "var(--text-muted)" }}>
+                  Lowercase letters, numbers, hyphens, or dots (nested labels).
+                </p>
+              )}
+            </div>
           </div>
 
           {isReservedOnly ? (
             <div
-              className="rounded-2xl border-2 p-3.5 text-xs"
+              className="rounded-2xl border-2 p-3 text-xs"
               style={{
                 backgroundColor: "var(--badge-warn-bg)",
                 borderColor: "var(--badge-warn-fg)",
@@ -515,14 +517,13 @@ export function ClaimBuilder({
                   className="mt-0.5 h-4 w-4 shrink-0"
                 />
                 <span>
-                  &ldquo;{cleanLabel}&rdquo; is in reservedLabels (admin-only). Confirm creating
-                  this system subdomain.
+                  &ldquo;{cleanLabel}&rdquo; is reserved (admin-only). Confirm creating it.
                 </span>
               </label>
             </div>
           ) : null}
 
-          {/* Deploy Hosting Preset */}
+          {/* Deploy Destination Preset */}
           <fieldset className="min-w-0 space-y-2">
             <legend className="text-xs font-bold uppercase tracking-wide">
               Deploy destination preset
@@ -535,7 +536,7 @@ export function ClaimBuilder({
                   <label
                     key={key}
                     htmlFor={radioId}
-                    className="inline-flex min-h-10 cursor-pointer items-center rounded-full border-2 px-4 text-xs font-bold transition-transform active:scale-95"
+                    className="choice-card inline-flex min-h-10 cursor-pointer items-center rounded-full border-2 px-4 text-xs font-bold transition-colors"
                     style={{
                       backgroundColor: active ? "var(--sky)" : "var(--bg-surface)",
                       borderColor: "var(--border-color)",
@@ -550,23 +551,23 @@ export function ClaimBuilder({
                       value={key}
                       checked={active}
                       onChange={() => handlePresetChange(key)}
-                      className="visually-hidden"
+                      className="sr-radio"
                     />
                     {PRESET_DEFAULTS[key].label}
                   </label>
                 );
               })}
             </div>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            <p className="min-h-[2.25rem] sm:min-h-[1.25rem] text-xs" style={{ color: "var(--text-muted)" }}>
               {PRESET_DEFAULTS[preset].hint}
             </p>
           </fieldset>
 
-          {/* Target + Optional Verification */}
+          {/* Uniform 2-Row Grid Across ALL Presets (0 vertical shift when switching preset) */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-1.5">
               <label htmlFor="claim-target" className="text-xs font-bold uppercase tracking-wide">
-                {recordType === "A" ? "Target IPv4 (A record)" : "Target Hostname (CNAME)"}
+                {recordType === "A" ? "Target IPv4 (A)" : "Target Hostname (CNAME)"}
               </label>
               <input
                 ref={targetInputRef}
@@ -591,71 +592,34 @@ export function ClaimBuilder({
                   borderColor: showTargetError ? "var(--badge-dead-fg)" : "var(--border-color)",
                 }}
               />
-              {showTargetError && targetError ? (
-                <p
-                  id="claim-target-error"
-                  className="text-xs font-bold"
-                  style={{ color: "var(--badge-dead-fg)" }}
-                >
-                  Error: {targetError}
-                </p>
-              ) : null}
+              <div className="min-h-[1.15rem] text-xs">
+                {showTargetError && targetError ? (
+                  <p id="claim-target-error" className="font-bold" style={{ color: "var(--badge-dead-fg)" }}>
+                    Error: {targetError}
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             <div className="flex min-w-0 flex-col gap-1.5">
-              <label htmlFor="claim-vercel-txt" className="text-xs font-bold uppercase tracking-wide">
-                {preset === "vercel" ? "Vercel TXT verify (optional)" : "Optional _challenge host"}
-              </label>
-              {preset === "vercel" ? (
-                <input
-                  id="claim-vercel-txt"
-                  name="vercelVerify"
-                  type="text"
-                  value={vercelVerify}
-                  onChange={(e) => setVercelVerify(e.target.value)}
-                  placeholder={`vc-domain-verify=${fqdn},...`}
-                  autoCorrect="off"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  className="font-mono-code min-h-11 min-w-0 w-full rounded-xl border-2 px-3 text-base sm:text-sm"
-                  style={{
-                    backgroundColor: "var(--bg-surface)",
-                    borderColor: "var(--border-color)",
-                  }}
-                />
-              ) : (
-                <input
-                  id="claim-extra-name"
-                  name="extraName"
-                  type="text"
-                  value={extraName}
-                  onChange={(e) => setExtraName(e.target.value)}
-                  placeholder="_github-pages-challenge-user"
-                  autoCorrect="off"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  className="font-mono-code min-h-11 min-w-0 w-full rounded-xl border-2 px-3 text-base sm:text-sm"
-                  style={{
-                    backgroundColor: "var(--bg-surface)",
-                    borderColor: "var(--border-color)",
-                  }}
-                />
-              )}
-            </div>
-          </div>
-
-          {preset !== "vercel" ? (
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <label htmlFor="claim-extra-txt" className="text-xs font-bold uppercase tracking-wide">
-                Challenge TXT value (optional)
+              <label htmlFor="claim-verify-value" className="text-xs font-bold uppercase tracking-wide">
+                {preset === "vercel" ? "Vercel TXT Verify (Opt.)" : "Challenge TXT (Opt.)"}
               </label>
               <input
-                id="claim-extra-txt"
-                name="extraTxt"
+                id="claim-verify-value"
+                name={preset === "vercel" ? "vercelVerify" : "extraTxt"}
                 type="text"
-                value={extraTxt}
-                onChange={(e) => setExtraTxt(e.target.value)}
-                placeholder="challenge-token"
+                value={preset === "vercel" ? vercelVerify : extraTxt}
+                onChange={(e) =>
+                  preset === "vercel"
+                    ? setVercelVerify(e.target.value)
+                    : setExtraTxt(e.target.value)
+                }
+                placeholder={
+                  preset === "vercel"
+                    ? `vc-domain-verify=${fqdn},...`
+                    : "challenge-token"
+                }
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
@@ -665,59 +629,95 @@ export function ClaimBuilder({
                   borderColor: "var(--border-color)",
                 }}
               />
-            </div>
-          ) : null}
-
-          {/* Primary Apply Action inside Form */}
-          <div className="space-y-3 pt-1">
-            {isManualOnly ? (
-              <div
-                className="rounded-2xl border-2 p-4 text-xs leading-relaxed"
-                style={{
-                  backgroundColor: "var(--badge-warn-bg)",
-                  borderColor: "var(--badge-warn-fg)",
-                  color: "var(--badge-warn-fg)",
-                }}
-              >
-                <p className="font-bold">
-                  Namecheap BasicDNS mode ({activeDomainMeta.domain})
-                </p>
-                <p className="mt-1">
-                  Copy the generated <strong>Host</strong>, <strong>Type</strong>, and{" "}
-                  <strong>Value</strong> rows on the right → paste into{" "}
-                  <strong>Namecheap → Domain List → Manage → Advanced DNS</strong>, then click{" "}
-                  <strong>Verify Live DNS</strong>.
-                </p>
+              <div className="flex min-h-[1.75rem] items-center text-[11px]" style={{ color: "var(--text-muted)" }}>
+                {preset === "vercel" ? (
+                  <span className="truncate">Written at _vercel.{activeDomainMeta.domain} if set.</span>
+                ) : (
+                  <span className="inline-flex min-w-0 items-center gap-1.5">
+                    <span>Prefix:</span>
+                    <input
+                      aria-label="Challenge TXT prefix"
+                      type="text"
+                      value={extraName}
+                      onChange={(e) => setExtraName(e.target.value)}
+                      placeholder="_acme-challenge"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      className="font-mono-code w-36 min-w-0 rounded border px-1.5 py-0.5 text-[11px]"
+                      style={{
+                        backgroundColor: "var(--bg-surface)",
+                        borderColor: "var(--border-color)",
+                      }}
+                    />
+                  </span>
+                )}
               </div>
-            ) : authenticated ? (
-              <button
-                type="submit"
-                disabled={applying || capability?.mode === "auto-needs-env"}
-                className="chibi-cta w-full"
-              >
-                {applying
-                  ? "Creating DNS records..."
-                  : capability?.mode === "auto-needs-env"
-                    ? `Configure ${activeDomainMeta.registrar} API token in Vercel Env first`
-                    : `Create DNS Record on ${activeDomainMeta.registrar} Now`}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={openLoginModal}
-                className="chibi-cta w-full"
-              >
-                {configured
-                  ? `Unlock Admin to Apply on ${activeDomainMeta.registrar} Now`
-                  : "View Admin Env Setup (Copy Mode Ready Below)"}
-              </button>
-            )}
+            </div>
+          </div>
+
+          {/* Stable Footer Slot (identical footprint across Auto & Namecheap domains) */}
+          <div className="space-y-3 border-t-2 pt-4" style={{ borderColor: "var(--shadow-tint)" }}>
+            <div className="flex min-h-[7.25rem] sm:min-h-[6rem] flex-col justify-between gap-2">
+              {isManualOnly ? (
+                <>
+                  <p className="min-h-[3.75rem] sm:min-h-[2.4rem] text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                    <strong>Namecheap BasicDNS:</strong> Copy rows from panel 2 → paste into{" "}
+                    <strong>Domain List → Manage → Advanced DNS</strong>, then run DoH Verify.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-flex min-h-10 flex-1 items-center justify-center rounded-full border-2 px-4 text-xs font-bold"
+                      style={{
+                        backgroundColor: "var(--badge-warn-bg)",
+                        borderColor: "var(--badge-warn-fg)",
+                        color: "var(--badge-warn-fg)",
+                      }}
+                    >
+                      Manual Copy Mode Active · API Skipped
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="min-h-[3.75rem] sm:min-h-[2.4rem] text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                    <strong>{activeDomainMeta.registrar} Auto API:</strong>{" "}
+                    {authenticated
+                      ? "Admin unlocked — click below to write DNS directly without a PR."
+                      : configured
+                        ? "Unlock Admin mode once to apply DNS live in one click."
+                        : "Set ADMIN_PASSWORD & registrar tokens on Vercel to enable 1-click writes."}
+                  </p>
+                  {authenticated ? (
+                    <button
+                      type="submit"
+                      disabled={applying || capability?.mode === "auto-needs-env"}
+                      className="chibi-cta w-full"
+                    >
+                      {applying
+                        ? "Creating DNS records..."
+                        : capability?.mode === "auto-needs-env"
+                          ? "Provider API Env Missing on Server"
+                          : "Create DNS Record Now"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={openLoginModal}
+                      className="chibi-cta w-full"
+                    >
+                      {configured ? "Unlock Admin to Apply DNS" : "View Admin Env Setup"}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
 
             {applyFeedback ? (
               <div
                 role="status"
                 aria-live="polite"
-                className="rounded-2xl border-2 p-3.5 text-xs font-bold"
+                className="rounded-2xl border-2 p-3 text-xs font-bold"
                 style={{
                   backgroundColor:
                     applyFeedback.kind === "success"
@@ -739,19 +739,24 @@ export function ClaimBuilder({
           </div>
         </form>
 
-        {/* Right: Copy-Ready DNS Records + Live Verification + Optional Git PR */}
+        {/* Right: Copy-Ready DNS Records + Live Verification + Fixed-Summary Git PR Accordion */}
         <div className="min-w-0 space-y-4">
           <div className="chibi-row-card min-w-0 space-y-4 p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
                 <h2 className="font-display text-lg font-extrabold">
                   2. DNS Records to Apply
                 </h2>
-                <p className="font-mono-code truncate text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                  Custom Domain on {PRESET_DEFAULTS[preset].label}: {fqdn}
+                <p
+                  className="font-mono-code truncate text-xs font-semibold"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Target FQDN: {fqdn}
                 </p>
               </div>
-              <CopyButton value={copyAllSummary} label="Copy all generated DNS records" showText />
+              <div className="shrink-0">
+                <CopyButton value={copyAllSummary} label="Copy all generated DNS records" showText />
+              </div>
             </div>
 
             <ul role="list" className="space-y-3">
@@ -764,7 +769,7 @@ export function ClaimBuilder({
                     borderColor: "var(--border-color)",
                   }}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span
                         className="font-mono-code rounded-md px-2 py-0.5 text-xs font-extrabold"
@@ -774,7 +779,7 @@ export function ClaimBuilder({
                       </span>
                       <span className="text-xs font-bold">{row.purpose}</span>
                     </div>
-                    <span className="font-mono-code text-[11px]" style={{ color: "var(--text-muted)" }}>
+                    <span className="font-mono-code shrink-0 text-[11px]" style={{ color: "var(--text-muted)" }}>
                       TTL {row.ttl}s
                     </span>
                   </div>
@@ -787,7 +792,7 @@ export function ClaimBuilder({
                         borderColor: "var(--border-color)",
                       }}
                     >
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1 overflow-hidden">
                         <span className="block text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
                           Host / Name
                         </span>
@@ -805,7 +810,7 @@ export function ClaimBuilder({
                         borderColor: "var(--border-color)",
                       }}
                     >
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1 overflow-hidden">
                         <span className="block text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
                           Value / Target
                         </span>
@@ -820,43 +825,57 @@ export function ClaimBuilder({
               ))}
             </ul>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-              <button
-                type="button"
-                onClick={handleVerifyDoh}
-                disabled={verifyingDoh}
-                className="chibi-secondary-btn"
-              >
-                {verifyingDoh ? "Checking DNS..." : `Verify Live DNS (${fqdn})`}
-              </button>
-
-              {dohResult ? (
-                <span
-                  role="status"
-                  className="font-mono-code text-xs font-bold"
-                  style={{
-                    color:
-                      dohResult.status === "found"
-                        ? "var(--badge-live-fg)"
-                        : dohResult.status === "error"
-                          ? "var(--badge-dead-fg)"
-                          : "var(--badge-warn-fg)",
-                  }}
+            <div className="space-y-2 border-t pt-3" style={{ borderColor: "var(--shadow-tint)" }}>
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={handleVerifyDoh}
+                  disabled={verifyingDoh}
+                  className="chibi-secondary-btn min-w-[9.5rem] shrink-0"
                 >
-                  {dohResult.error
-                    ? dohResult.error
-                    : dohResult.answers.length > 0
-                      ? `Live (${dohResult.resolver}): ${dohResult.answers.map((a) => a.data).join(", ")}`
-                      : `Not propagating yet (${dohResult.status})`}
+                  {verifyingDoh ? "Checking DNS..." : "Verify Live DNS"}
+                </button>
+                <span
+                  className="font-mono-code min-w-0 flex-1 truncate text-right text-xs"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {fqdn}
                 </span>
-              ) : null}
+              </div>
+
+              <div className="min-h-[1.25rem]">
+                {dohResult ? (
+                  <p
+                    role="status"
+                    className="font-mono-code truncate text-xs font-bold"
+                    style={{
+                      color:
+                        dohResult.status === "found"
+                          ? "var(--badge-live-fg)"
+                          : dohResult.status === "error"
+                            ? "var(--badge-dead-fg)"
+                            : "var(--badge-warn-fg)",
+                    }}
+                  >
+                    {dohResult.error
+                      ? dohResult.error
+                      : dohResult.answers.length > 0
+                        ? `Live (${dohResult.resolver}): ${dohResult.answers.map((a) => a.data).join(", ")}`
+                        : `Not propagating yet (${dohResult.status})`}
+                  </p>
+                ) : (
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    Click Verify Live DNS to query public Cloudflare/Google resolvers.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Optional GitOps JSON PR fallback accordion */}
+          {/* Static summary label guarantees 1-line stability regardless of domain/prefix length */}
           <details className="chibi-row-card min-w-0 p-5">
             <summary className="cursor-pointer font-display text-sm font-extrabold">
-              Optional: GitOps PR JSON Mode (domains/{gitRelativePath})
+              Optional: GitOps PR JSON Mode
             </summary>
 
             <div className="mt-4 space-y-3">

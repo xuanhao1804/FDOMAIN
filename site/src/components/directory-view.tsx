@@ -437,11 +437,12 @@ export function DirectoryView({
                     <p className="text-xs sm:text-sm" style={{ color: "var(--text-muted)" }}>
                       {entry.description}
                     </p>
-                    {dohResults[entry.fqdn] ? (
-                      <p className="font-mono-code text-xs font-semibold" style={{ color: "var(--badge-live-fg)" }}>
-                        {dohResults[entry.fqdn]}
-                      </p>
-                    ) : null}
+                    <p
+                      className="font-mono-code min-h-[1.1rem] truncate text-xs font-semibold"
+                      style={{ color: "var(--badge-live-fg)" }}
+                    >
+                      {dohResults[entry.fqdn] ?? ""}
+                    </p>
                   </div>
 
                   <div className="flex min-w-0 flex-wrap items-center gap-2.5">
@@ -552,7 +553,7 @@ export function DirectoryView({
             type="button"
             onClick={() => void loadLiveRecords()}
             disabled={liveLoading}
-            className="chibi-secondary-btn"
+            className="chibi-secondary-btn min-w-[10.5rem]"
           >
             {liveLoading ? "Refreshing..." : "Refresh Live DNS"}
           </button>
