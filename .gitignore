@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+site/node_modules/
+
+# Build & output
+site/.next/
+site/out/
+site/public/data/
+dist/
+coverage/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+creds.json
+
+# Runtime & generated artifacts
+status.json
+dnscontrol-preview.json
+
+# Local tooling & OS
+.codegraph/
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
