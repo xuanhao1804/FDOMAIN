@@ -22,6 +22,7 @@ import {
   matchesUnmanagedRule,
   type SupportedRecordType,
 } from "@/lib/dns-rules";
+import { invalidateLiveRecordsCache } from "@/lib/live-records-cache";
 import type { SiteRootDomainMeta, SiteUnmanagedRule } from "@/lib/registry";
 import { cn } from "@/lib/utils";
 import { useAdminSession } from "./admin-context";
@@ -338,6 +339,7 @@ export function ClaimBuilder({
         return;
       }
       const createdList = body.created?.map((c) => `${c.type} ${c.fqdn} → ${c.value}`).join("; ");
+      invalidateLiveRecordsCache();
       setApplyFeedback({
         kind: "success",
         text: createdList

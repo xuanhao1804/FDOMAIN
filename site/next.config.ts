@@ -10,6 +10,13 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./src/data/registry.json", "../config.json", "./messages/**"],
   },
+  experimental: {
+    optimizePackageImports: ["@phosphor-icons/react"],
+    staleTimes: {
+      dynamic: 60,
+      static: 180,
+    },
+  },
   images: {
     unoptimized: true,
   },

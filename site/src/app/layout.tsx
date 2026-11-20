@@ -11,9 +11,10 @@ import "./globals.css";
 
 const newsreader = Newsreader({
   subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["600"],
   variable: "--font-newsreader",
   display: "swap",
+  preload: false,
 });
 
 const beVietnamPro = Be_Vietnam_Pro({
@@ -25,9 +26,9 @@ const beVietnamPro = Be_Vietnam_Pro({
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700"],
   variable: "--font-jetbrains",
   display: "swap",
+  preload: false,
 });
 
 export async function generateMetadata(): Promise<Metadata> {

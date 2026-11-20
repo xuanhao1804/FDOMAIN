@@ -13,10 +13,10 @@ import {
   Stack,
   X,
 } from "@phosphor-icons/react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link, { useLinkStatus } from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import type { SiteRootDomainMeta } from "@/lib/registry";
 import {
   AdminSessionProvider,
@@ -87,19 +87,41 @@ function isRouteActive(pathname: string, href: string): boolean {
   return normalized === href;
 }
 
+function isPlainLeftClick(e: MouseEvent<HTMLAnchorElement>): boolean {
+  return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+}
+
+function NavStatusDot({ active }: { active: boolean }) {
+  const { pending } = useLinkStatus();
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-terracotta)] transition-opacity ${
+        pending ? "animate-pulse opacity-100" : active ? "opacity-100" : "opacity-0"
+      }`}
+    />
+  );
+}
+
 function SidebarContents({
   pathname,
+  activePath,
   rootDomains,
   repository,
   totalDnsRecords,
   maxTotalRecords,
+  onPrefetchRoute,
+  onOptimisticNavigate,
   onNavigate,
 }: {
   pathname: string;
+  activePath: string;
   rootDomains: SiteRootDomainMeta[];
   repository: string;
   totalDnsRecords: number;
   maxTotalRecords: number;
+  onPrefetchRoute: (href: string) => void;
+  onOptimisticNavigate: (href: string) => void;
   onNavigate?: () => void;
 }) {
   const t = useTranslations("nav");
@@ -115,7 +137,14 @@ function SidebarContents({
         {/* Minimal Brand Anchor */}
         <Link
           href="/"
-          onClick={onNavigate}
+          prefetch={true}
+          onPointerEnter={() => onPrefetchRoute("/")}
+          onClick={(e) => {
+            if (isPlainLeftClick(e) && !isRouteActive(pathname, "/")) {
+              onOptimisticNavigate("/");
+            }
+            onNavigate?.();
+          }}
           className="group flex items-center justify-between gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2.5 no-underline transition-colors hover:border-[var(--border-strong)]"
         >
           <span className="flex items-center gap-2.5">
@@ -134,13 +163,21 @@ function SidebarContents({
         <nav aria-label={t("mainAriaLabel")}>
           <ul role="list" className="space-y-1">
             {NAV_ITEMS.map((item) => {
-              const active = isRouteActive(pathname, item.href);
+              const active = isRouteActive(activePath, item.href);
               return (
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    prefetch={true}
                     aria-current={active ? "page" : undefined}
-                    onClick={onNavigate}
+                    onPointerEnter={() => onPrefetchRoute(item.href)}
+                    onFocus={() => onPrefetchRoute(item.href)}
+                    onClick={(e) => {
+                      if (isPlainLeftClick(e) && !isRouteActive(pathname, item.href)) {
+                        onOptimisticNavigate(item.href);
+                      }
+                      onNavigate?.();
+                    }}
                     className="editorial-nav-link"
                   >
                     <span
@@ -151,12 +188,7 @@ function SidebarContents({
                       {item.renderIcon(active)}
                     </span>
                     <span className="flex-1 truncate">{t(item.labelKey)}</span>
-                    <span
-                      aria-hidden="true"
-                      className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-terracotta)] transition-opacity ${
-                        active ? "opacity-100" : "opacity-0"
-                      }`}
-                    />
+                    <NavStatusDot active={active} />
                   </Link>
                 </li>
               );
@@ -262,13 +294,26 @@ function AppShellInner({
   const tCommon = useTranslations("common");
   const locale = useLocale();
   const pathname = usePathname() || "/";
+  const router = useRouter();
+  const [optimisticPath, setOptimisticPath] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const drawerRef = useRef<HTMLDialogElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
 
-  const currentNav = NAV_ITEMS.find((item) => isRouteActive(pathname, item.href)) ?? NAV_ITEMS[0]!;
+  const activePath = optimisticPath ?? pathname;
+  const currentNav = NAV_ITEMS.find((item) => isRouteActive(activePath, item.href)) ?? NAV_ITEMS[0]!;
+
+  useEffect(() => {
+    setOptimisticPath(null);
+  }, [pathname]);
+
+  function prefetchRoute(href: string) {
+    if (!isRouteActive(pathname, href)) {
+      router.prefetch(href);
+    }
+  }
 
   useEffect(() => {
     document.title = tMeta(currentNav.titleKey);
@@ -359,10 +404,13 @@ function AppShellInner({
         <div className="sticky top-0 h-dvh overflow-y-auto">
           <SidebarContents
             pathname={pathname}
+            activePath={activePath}
             rootDomains={rootDomains}
             repository={repository}
             totalDnsRecords={totalDnsRecords}
             maxTotalRecords={maxTotalRecords}
+            onPrefetchRoute={prefetchRoute}
+            onOptimisticNavigate={setOptimisticPath}
           />
         </div>
       </aside>
@@ -405,10 +453,13 @@ function AppShellInner({
 
             <SidebarContents
               pathname={pathname}
+              activePath={activePath}
               rootDomains={rootDomains}
               repository={repository}
               totalDnsRecords={totalDnsRecords}
               maxTotalRecords={maxTotalRecords}
+              onPrefetchRoute={prefetchRoute}
+              onOptimisticNavigate={setOptimisticPath}
               onNavigate={closeDrawer}
             />
           </div>
@@ -446,9 +497,18 @@ function AppShellInner({
               <LanguageSwitcher />
 
               {/* Fixed min-width pins ThemeToggle & LanguageSwitcher across all routes & VI/EN */}
-              {!isRouteActive(pathname, "/claim") ? (
+              {!isRouteActive(activePath, "/claim") ? (
                 <Button asChild size="sm" className="min-w-[5.75rem] sm:min-w-[9.5rem]">
-                  <Link href="/claim">
+                  <Link
+                    href="/claim"
+                    prefetch={true}
+                    onPointerEnter={() => prefetchRoute("/claim")}
+                    onClick={(e) => {
+                      if (isPlainLeftClick(e) && !isRouteActive(pathname, "/claim")) {
+                        setOptimisticPath("/claim");
+                      }
+                    }}
+                  >
                     <Plus size={14} weight="bold" aria-hidden="true" />
                     <span className="sm:hidden">{t("claimCtaShort")}</span>
                     <span className="hidden sm:inline">{t("claimCtaFull")}</span>
@@ -461,7 +521,16 @@ function AppShellInner({
                   size="sm"
                   className="min-w-[5.75rem] sm:min-w-[9.5rem]"
                 >
-                  <Link href="/directory">
+                  <Link
+                    href="/directory"
+                    prefetch={true}
+                    onPointerEnter={() => prefetchRoute("/directory")}
+                    onClick={(e) => {
+                      if (isPlainLeftClick(e) && !isRouteActive(pathname, "/directory")) {
+                        setOptimisticPath("/directory");
+                      }
+                    }}
+                  >
                     <Stack size={14} weight="duotone" aria-hidden="true" />
                     <span className="sm:hidden">{t("viewDirectoryShort")}</span>
                     <span className="hidden sm:inline">{t("viewDirectoryFull")}</span>

@@ -593,22 +593,22 @@ dialog.nav-drawer::backdrop {
   pointer-events: none;
 }
 
-/* Subtle editorial stagger reveal */
+/* Crisp editorial reveal (short 160ms duration so instant route switches feel immediate) */
 @media (prefers-reduced-motion: no-preference) {
   .reveal-block {
-    animation: editorial-fade-up 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: editorial-fade-up 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .stagger-item {
-    animation: editorial-fade-up 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
-    animation-delay: calc(var(--stagger-index, 0) * 65ms);
+    animation: editorial-fade-up 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--stagger-index, 0) * 25ms);
   }
 }
 
 @keyframes editorial-fade-up {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;

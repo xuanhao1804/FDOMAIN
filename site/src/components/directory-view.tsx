@@ -16,6 +16,11 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import type { LiveDnsRecord } from "@/lib/dns-providers/types";
+import {
+  getCachedLiveRecords,
+  invalidateLiveRecordsCache,
+  setCachedLiveRecords,
+} from "@/lib/live-records-cache";
 import type { SiteRootDomainMeta, SiteSubdomainItem, SubdomainHealth } from "@/lib/registry";
 import { cn } from "@/lib/utils";
 import { useAdminSession } from "./admin-context";
@@ -59,9 +64,13 @@ export function DirectoryView({
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const [liveRecords, setLiveRecords] = useState<LiveDnsRecord[]>([]);
-  const [liveLoading, setLiveLoading] = useState(true);
-  const [hasLoadedLiveOnce, setHasLoadedLiveOnce] = useState(false);
+  const [liveRecords, setLiveRecords] = useState<LiveDnsRecord[]>(
+    () => getCachedLiveRecords(authenticated) ?? [],
+  );
+  const [liveLoading, setLiveLoading] = useState(() => getCachedLiveRecords(authenticated) === null);
+  const [hasLoadedLiveOnce, setHasLoadedLiveOnce] = useState(
+    () => getCachedLiveRecords(authenticated) !== null,
+  );
   const [liveError, setLiveError] = useState<string | null>(null);
   const [actionBanner, setActionBanner] = useState<string | null>(null);
   const [dohResults, setDohResults] = useState<Record<string, string>>({});
@@ -77,29 +86,54 @@ export function DirectoryView({
     void importDeleteDialog();
   }, []);
 
-  const loadLiveRecords = useCallback(async () => {
-    setLiveLoading(true);
-    setLiveError(null);
-    try {
-      const res = await fetch("/api/dns/records", { cache: "no-store" });
-      if (!res.ok) {
-        const errBody = (await res.json()) as { error?: string };
-        setLiveError(errBody.error ?? t("liveLoadError"));
-        return;
+  const loadLiveRecords = useCallback(
+    async (options?: { force?: boolean; signal?: AbortSignal }) => {
+      if (!options?.force) {
+        const cached = getCachedLiveRecords(authenticated);
+        if (cached) {
+          setLiveRecords(cached);
+          setLiveLoading(false);
+          setHasLoadedLiveOnce(true);
+          return;
+        }
       }
-      const body = (await res.json()) as { records?: LiveDnsRecord[] };
-      setLiveRecords(body.records ?? []);
-    } catch {
-      // Offline / fallback mode
-    } finally {
-      setLiveLoading(false);
-      setHasLoadedLiveOnce(true);
-    }
-  }, [t]);
+
+      setLiveLoading(true);
+      setLiveError(null);
+      try {
+        const res = await fetch("/api/dns/records", {
+          cache: "no-store",
+          signal: options?.signal,
+        });
+        if (!res.ok) {
+          const errBody = (await res.json()) as { error?: string };
+          setLiveError(errBody.error ?? t("liveLoadError"));
+          return;
+        }
+        const body = (await res.json()) as { records?: LiveDnsRecord[] };
+        const records = body.records ?? [];
+        setCachedLiveRecords(authenticated, records);
+        setLiveRecords(records);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
+        // Offline / fallback mode
+      } finally {
+        if (!options?.signal?.aborted) {
+          setLiveLoading(false);
+          setHasLoadedLiveOnce(true);
+        }
+      }
+    },
+    [authenticated, t],
+  );
 
   useEffect(() => {
-    void loadLiveRecords();
-  }, [loadLiveRecords, authenticated]);
+    const controller = new AbortController();
+    void loadLiveRecords({ signal: controller.signal });
+    return () => controller.abort();
+  }, [loadLiveRecords]);
 
   // Reset progressive slice when filter changes
   useEffect(() => {
@@ -179,13 +213,14 @@ export function DirectoryView({
       if (!res.ok) {
         setActionBanner(body.error ?? t("deleteErrorFallback"));
       } else {
+        invalidateLiveRecordsCache();
         setActionBanner(
           t("deletedBanner", {
             fqdn: pendingDelete.fqdn,
             type: pendingDelete.type,
           }),
         );
-        await loadLiveRecords();
+        await loadLiveRecords({ force: true });
       }
     } catch {
       setActionBanner(t("deleteNetworkError"));
@@ -433,7 +468,7 @@ export function DirectoryView({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => void loadLiveRecords()}
+            onClick={() => void loadLiveRecords({ force: true })}
             disabled={liveLoading}
             className="min-w-[10.5rem]"
           >

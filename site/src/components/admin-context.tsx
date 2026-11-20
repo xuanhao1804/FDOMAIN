@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { DomainCapability, ProviderEnvStatus } from "@/lib/dns-providers/types";
+import { invalidateLiveRecordsCache } from "@/lib/live-records-cache";
 
 const importAdminDialog = () =>
   import("./admin-login-dialog").then((mod) => mod.AdminLoginDialog);
@@ -119,12 +120,14 @@ export function AdminSessionProvider({
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
+      invalidateLiveRecordsCache();
       setAuthenticated(false);
       await refresh();
     }
   }, [refresh]);
 
   const handleAuthenticated = useCallback(async () => {
+    invalidateLiveRecordsCache();
     setAuthenticated(true);
     await refresh();
   }, [refresh]);

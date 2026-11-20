@@ -83,13 +83,13 @@ export function OverviewView({ data }: { data: SiteRegistryPayload }) {
 
             <div className="flex flex-wrap items-center gap-2.5 pt-2">
               <Button asChild size="lg">
-                <Link href="/claim">
+                <Link href="/claim" prefetch={true}>
                   <Plus size={16} weight="bold" aria-hidden="true" />
                   <span>{t("heroClaimCta")}</span>
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg">
-                <Link href="/directory">
+                <Link href="/directory" prefetch={true}>
                   <span>{t("heroBrowseCta", { count: data.entries.length })}</span>
                   <ArrowRight size={15} weight="bold" aria-hidden="true" />
                 </Link>
@@ -215,7 +215,7 @@ export function OverviewView({ data }: { data: SiteRegistryPayload }) {
 
       {/* 3-Column Editorial Capability Grid */}
       <section className="grid gap-4 md:grid-cols-3">
-        <Link href="/directory" className="group no-underline">
+        <Link href="/directory" prefetch={true} className="group no-underline">
           <Card
             interactive
             className="stagger-item flex h-full flex-col justify-between gap-4 p-6"
@@ -242,7 +242,7 @@ export function OverviewView({ data }: { data: SiteRegistryPayload }) {
           </Card>
         </Link>
 
-        <Link href="/claim" className="group no-underline">
+        <Link href="/claim" prefetch={true} className="group no-underline">
           <Card
             interactive
             className="stagger-item flex h-full flex-col justify-between gap-4 p-6"
@@ -269,7 +269,7 @@ export function OverviewView({ data }: { data: SiteRegistryPayload }) {
           </Card>
         </Link>
 
-        <Link href="/health" className="group no-underline">
+        <Link href="/health" prefetch={true} className="group no-underline">
           <Card
             interactive
             className="stagger-item flex h-full flex-col justify-between gap-4 p-6"

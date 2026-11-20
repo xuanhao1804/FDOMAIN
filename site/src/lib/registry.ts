@@ -143,14 +143,20 @@ function resolveRegistryFilePath(): string | null {
   return null;
 }
 
+let cachedProdRegistry: SiteRegistryPayload | null = null;
+
 export function loadSiteRegistryData(): SiteRegistryPayload {
+  if (process.env.NODE_ENV === "production" && cachedProdRegistry) {
+    return cachedProdRegistry;
+  }
+
   const dataPath = resolveRegistryFilePath();
   if (!dataPath) {
     return DEFAULT_FALLBACK_PAYLOAD;
   }
 
   const parsed = JSON.parse(readFileSync(dataPath, "utf8")) as Partial<SiteRegistryPayload>;
-  return {
+  const payload: SiteRegistryPayload = {
     ...DEFAULT_FALLBACK_PAYLOAD,
     ...parsed,
     rootDomains:
@@ -165,4 +171,9 @@ export function loadSiteRegistryData(): SiteRegistryPayload {
       dnsProvider: item.dnsProvider ?? "namecom",
     })),
   };
+
+  if (process.env.NODE_ENV === "production") {
+    cachedProdRegistry = payload;
+  }
+  return payload;
 }

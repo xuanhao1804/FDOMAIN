@@ -1,13 +1,13 @@
 # Current State
 
-- **Active Outcome**: Zero-shift layout hardening, SSR hydration, and lazy-loading optimization ([#5](https://github.com/xuanhao1804/FDOMAIN/issues/5)) on top of Warm Minimalist Editorial Bento ([#4](https://github.com/xuanhao1804/FDOMAIN/issues/4)) & FDOMAIN v2 ([#2](https://github.com/xuanhao1804/FDOMAIN/issues/2)).
-- **Status**: `COMPLETED` (Implemented, verified on Desktop & Mobile, ready to push to `origin/main`).
+- **Active Outcome**: Instant sidebar navigation, full RSC prefetching, Phosphor package optimization, font-preload diet, and Singapore `sin1` region ([#6](https://github.com/xuanhao1804/FDOMAIN/issues/6)) on top of zero-shift layout hardening ([#5](https://github.com/xuanhao1804/FDOMAIN/issues/5)).
+- **Status**: `COMPLETED` (Implemented, verified on production `next start`, ready to push to `origin/main`).
 - **Branch**: `main`.
-- **Production URL**: `https://domain.harrylee.dev` (Vercel `Root Directory = site`, Output Directory override disabled, env vars configured).
+- **Production URL**: `https://domain.harrylee.dev` (Vercel `Root Directory = site`, single compute region `sin1` Singapore).
 - **Last Verified**:
   - `npm test`: 7 files, 40 tests passed (`status-check`, `export-site-data`, `drift-guard`, `schema-compiler`, `pr-validator`, `i18n`, `v2-multidomain-api`).
   - `npm run typecheck` & `npm --prefix site run typecheck`: passed (`0` errors).
   - `npm run validate`: 0 subdomain files, 0/180 DNS records (`domains/.gitkeep`).
-  - `npm run site:build`: production Next.js App Router build passed across `/`, `/claim`, `/directory`, `/health`, `loading.tsx` skeletons, `/api/*`, and dynamic chunks (`AdminLoginDialog`, `DeleteRecordDialog`, `GitOpsPrPanel`).
-  - Browser verification (`http://localhost:3000`): Desktop `1440x900` and Mobile `390x844` across all 4 routes + `VI ↔ EN` switching — `0` console errors, `0` page errors, `0` HTTP `>= 400`, `0px` horizontal overflow, `0px` delta on Header (`ThemeToggle`, `LanguageSwitcher`, CTA, Mobile `menuBtn` `32x32`), Sidebar (`Admin Auto-DNS` non-truncating at `264px`), `/health` immediate SSR (`harrylee.dev`, `vinamuse.store`, `Sẵn sàng`), `/directory` Skeleton → Live Records `#git-registry-heading` `y` (`0px` delta), `summaryCount` (`0px` delta), Live DoH row (`0px` delta), and `/claim` across domain/preset switches, invalid subdomain, 3-line Vietnamese target error (`0px` delta Desktop & Mobile), Copy, DoH, lazy `AdminLoginDialog`, lazy `GitOpsPrPanel` (`<pre>` `0 → 1 → 0`), and keyboard `Tab` reachability.
-- **Next Action**: Vercel will automatically deploy `https://domain.harrylee.dev` after `git push origin main`.
+  - `npm run site:build`: compiled in `6.4s` (down from `16.2s` via `optimizePackageImports: ["@phosphor-icons/react"]`), `First Load JS shared by all: 103 kB`.
+  - Production browser verification (`next start` at `http://localhost:3000`, Desktop `1440x900`): auto-prefetched `/directory`, `/claim`, and `/health` in background (`428ms`), `0` new `_rsc` network requests on every sequential sidebar click, `0` new `/api/dns/records` requests & zero skeleton flash on returning to `/directory`, `VI ↔ EN` Router Cache invalidation verified across `/`, `/claim`, `/directory`, `0` console/hydration/HTTP errors, and `0px` delta on Header + all 4 Sidebar links.
+- **Next Action**: Vercel will automatically deploy `https://domain.harrylee.dev` to `sin1` after `git push origin main`.
