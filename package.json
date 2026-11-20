@@ -1,0 +1,32 @@
+{
+  "name": "fdomain",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal GitOps subdomain registry (DNS-as-code) with Cloudflare, DNSControl, GitHub Actions, and Next.js lookup UI",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate": "tsx scripts/validate.ts",
+    "dns:build": "tsx scripts/build-dns-manifest.ts",
+    "dns:diff": "tsx scripts/diff-summary.ts",
+    "dns:guard": "tsx scripts/drift-guard.ts",
+    "status:check": "tsx scripts/status-check.ts",
+    "site:data": "tsx scripts/export-site-data.ts",
+    "site:build": "npm run site:data && npm --prefix site run build",
+    "sub": "tsx scripts/sub.ts"
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}

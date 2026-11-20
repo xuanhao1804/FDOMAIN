@@ -1,0 +1,9 @@
+{
+  "owner": {
+    "github": "xuanhao1804"
+  },
+  "description": "Personal blog deployed on Vercel",
+  "records": {
+    "CNAME": "cname.vercel-dns.com"
+  }
+}

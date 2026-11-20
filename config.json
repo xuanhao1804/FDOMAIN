@@ -1,0 +1,49 @@
+{
+  "rootDomain": "harrylee.dev",
+  "repository": "xuanhao1804/FDOMAIN",
+  "lookupSubdomain": "domains",
+  "admins": ["xuanhao1804"],
+  "trusted": [],
+  "reservedLabels": [
+    "@",
+    "www",
+    "mail",
+    "admin",
+    "domains",
+    "status",
+    "ns1",
+    "ns2",
+    "autoconfig",
+    "autodiscover",
+    "smtp",
+    "imap",
+    "pop",
+    "ftp",
+    "webmail",
+    "cpanel",
+    "localhost",
+    "_vercel",
+    "_dmarc",
+    "_domainkey"
+  ],
+  "unmanaged": [
+    { "label": "@", "types": "*" },
+    { "label": "www", "types": "*" },
+    { "label": "mail", "types": "*" },
+    { "label": "autoconfig", "types": "*" },
+    { "label": "autodiscover", "types": "*" },
+    { "label": "_dmarc", "types": "TXT" },
+    { "label": "*._domainkey", "types": "TXT,CNAME" },
+    { "label": "_domainkey", "types": "TXT" },
+    {
+      "label": "_vercel",
+      "types": "TXT",
+      "target": "vc-domain-verify=harrylee.dev,*"
+    }
+  ],
+  "limits": {
+    "maxTotalRecords": 180,
+    "warnAtRecords": 150,
+    "maxDeletionsPerPush": 10
+  }
+}

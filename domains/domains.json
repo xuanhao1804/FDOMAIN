@@ -1,0 +1,9 @@
+{
+  "owner": {
+    "github": "xuanhao1804"
+  },
+  "description": "Public subdomain directory and status portal for FDOMAIN",
+  "records": {
+    "CNAME": "xuanhao1804.github.io"
+  }
+}
