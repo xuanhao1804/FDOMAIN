@@ -11,12 +11,16 @@
 
 ## Detected setup
 
-- Node.js (`package.json`)
+- Node.js (`package.json` at root, `site/package.json` for Next.js static export lookup portal)
 
 Available verification commands detected from manifests:
 
 - `npm run typecheck`
 - `npm run test`
+- `npm run validate`
+- `npm run dns:build`
+- `npm run site:build`
+- `npm --prefix site run typecheck`
 
 If `docs/context/PROJECT.md` and `docs/context/CURRENT.md` exist, read them first. Load decisions, history, and session logs only when the task requires them.
 
