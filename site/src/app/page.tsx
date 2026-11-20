@@ -217,35 +217,54 @@ export default function OverviewPage() {
           </Link>
         </div>
 
-        <ul role="list" className="divide-y" style={{ borderColor: "var(--border-color)" }}>
-          {previewEntries.map((entry) => (
-            <li
-              key={entry.fqdn}
-              className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-1 last:pb-1"
-              style={{ borderColor: "var(--shadow-tint)" }}
-            >
-              <div className="min-w-0">
-                <a
-                  href={`https://${entry.fqdn}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono-code text-sm font-bold underline underline-offset-4"
-                >
-                  {entry.fqdn}
-                </a>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {entry.description}
-                </p>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                  @{entry.owner.github}
-                </span>
-                <StatusBadge status={entry.health.status} reason={entry.health.reason} />
-              </div>
-            </li>
-          ))}
-        </ul>
+        {previewEntries.length === 0 ? (
+          <div
+            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 px-4 py-4 text-xs sm:text-sm"
+            style={{
+              backgroundColor: "var(--bg-subtle)",
+              borderColor: "var(--border-color)",
+              color: "var(--text-muted)",
+            }}
+          >
+            <span>
+              No subdomains tracked yet. Use <strong>Claim Subdomain</strong> to apply DNS live via
+              API or generate copyable records.
+            </span>
+            <Link href="/claim" className="chibi-secondary-btn shrink-0">
+              + Claim Subdomain
+            </Link>
+          </div>
+        ) : (
+          <ul role="list" className="divide-y" style={{ borderColor: "var(--border-color)" }}>
+            {previewEntries.map((entry) => (
+              <li
+                key={entry.fqdn}
+                className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-1 last:pb-1"
+                style={{ borderColor: "var(--shadow-tint)" }}
+              >
+                <div className="min-w-0">
+                  <a
+                    href={`https://${entry.fqdn}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono-code text-sm font-bold underline underline-offset-4"
+                  >
+                    {entry.fqdn}
+                  </a>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    {entry.description}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                    @{entry.owner.github}
+                  </span>
+                  <StatusBadge status={entry.health.status} reason={entry.health.reason} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

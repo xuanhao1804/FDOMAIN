@@ -195,6 +195,9 @@ export function DirectoryView({
     { id: "unknown", label: "Pending" },
   ];
 
+  const hasActiveFilters =
+    Boolean(deferredQuery) || domainFilter !== "all" || statusFilter !== "all";
+
   const activeClaimHref =
     domainFilter !== "all"
       ? `/claim?domain=${encodeURIComponent(domainFilter)}`
@@ -390,27 +393,43 @@ export function DirectoryView({
               height={132}
               className="h-28 w-auto select-none"
             />
-            <div className="space-y-1">
-              <p className="font-display text-lg font-bold">No matching subdomains</p>
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                Try another keyword or reset the domain/status filters.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setQuery("");
-                setDomainFilter("all");
-                setStatusFilter("all");
-              }}
-              className="chibi-cta"
-            >
-              Show all subdomains
-            </button>
+            {hasActiveFilters ? (
+              <>
+                <div className="space-y-1">
+                  <p className="font-display text-lg font-bold">No matching subdomains</p>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                    Try another keyword or reset the domain/status filters.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("");
+                    setDomainFilter("all");
+                    setStatusFilter("all");
+                  }}
+                  className="chibi-cta"
+                >
+                  Show all subdomains
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <p className="font-display text-lg font-bold">No subdomains registered yet</p>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                    Create your first subdomain in Claim Subdomain, or unlock Admin once Vercel env vars are configured to view Live DNS records.
+                  </p>
+                </div>
+                <Link href={activeClaimHref} className="chibi-cta">
+                  + Claim Subdomain
+                </Link>
+              </>
+            )}
           </div>
         ) : filteredGitEntries.length === 0 ? (
           <div className="chibi-row-card px-5 py-6 text-sm" style={{ color: "var(--text-muted)" }}>
-            No Git-tracked JSON files match this filter yet.
+            No Git-tracked JSON files yet — live API records appear below.
           </div>
         ) : (
           <ul role="list" className="space-y-3">

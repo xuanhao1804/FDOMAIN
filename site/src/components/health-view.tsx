@@ -212,38 +212,52 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
           </span>
         </div>
 
-        <ul role="list" className="space-y-2.5">
-          {data.entries.map((entry) => (
-            <li
-              key={entry.fqdn}
-              className="flex flex-col gap-2 rounded-2xl border-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-              style={{
-                backgroundColor: "var(--bg-surface)",
-                borderColor: "var(--border-color)",
-              }}
-            >
-              <div className="min-w-0">
-                <a
-                  href={`https://${entry.fqdn}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono-code text-sm font-bold underline underline-offset-4"
-                >
-                  {entry.fqdn}
-                </a>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {entry.health.reason}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                  @{entry.owner.github}
-                </span>
-                <StatusBadge status={entry.health.status} reason={entry.health.reason} />
-              </div>
-            </li>
-          ))}
-        </ul>
+        {data.entries.length === 0 ? (
+          <p
+            className="rounded-2xl border-2 px-4 py-4 text-xs sm:text-sm"
+            style={{
+              backgroundColor: "var(--bg-surface)",
+              borderColor: "var(--border-color)",
+              color: "var(--text-muted)",
+            }}
+          >
+            No Git-tracked JSON files in <code className="font-mono-code font-bold">domains/</code>{" "}
+            yet — provider API readiness above reflects your live deployment state.
+          </p>
+        ) : (
+          <ul role="list" className="space-y-2.5">
+            {data.entries.map((entry) => (
+              <li
+                key={entry.fqdn}
+                className="flex flex-col gap-2 rounded-2xl border-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                style={{
+                  backgroundColor: "var(--bg-surface)",
+                  borderColor: "var(--border-color)",
+                }}
+              >
+                <div className="min-w-0">
+                  <a
+                    href={`https://${entry.fqdn}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono-code text-sm font-bold underline underline-offset-4"
+                  >
+                    {entry.fqdn}
+                  </a>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    {entry.health.reason}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                    @{entry.owner.github}
+                  </span>
+                  <StatusBadge status={entry.health.status} reason={entry.health.reason} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
