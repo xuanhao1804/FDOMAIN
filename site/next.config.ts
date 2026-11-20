@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const nextConfig: NextConfig = {
   output: "export",
+  trailingSlash: true,
   outputFileTracingRoot: dirname(fileURLToPath(import.meta.url)),
   images: {
     unoptimized: true,

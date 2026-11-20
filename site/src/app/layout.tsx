@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { AppShell } from "@/components/app-shell";
+import { loadSiteRegistryData } from "@/lib/registry";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "FDOMAIN — Subdomain Registry",
   description:
-    "Personal GitOps DNS-as-code subdomain directory, DNS record lookup, and live health monitor.",
+    "Personal GitOps DNS-as-code subdomain directory, JSON claim builder, and live health monitor.",
 };
 
 export const viewport: Viewport = {
@@ -16,9 +18,23 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const data = loadSiteRegistryData();
+
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <a href="#registry-main" className="skip-link">
+          Skip to content
+        </a>
+        <AppShell
+          rootDomain={data.rootDomain}
+          repository={data.repository}
+          totalDnsRecords={data.totalDnsRecords}
+          maxTotalRecords={data.limits.maxTotalRecords}
+        >
+          {children}
+        </AppShell>
+      </body>
     </html>
   );
 }

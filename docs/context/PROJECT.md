@@ -15,7 +15,7 @@ Personal GitOps subdomain registry (`DNS-as-code`) managing subdomains on Cloudf
   - `status-check.ts`: Daily/manual DNS + HTTPS health scanner (`live`, `warn`, `dead` provider signatures) outputting `status.json` and managing `dead-subdomain` Issues.
   - `sub.ts`: Admin CLI (`npm run sub -- add/remove/list`) for fast local management.
   - `export-site-data.ts`: Compiles `domains/*.json`, `config.json`, and `status.json` into static JSON consumed by `site/` (omitting `owner.contact`).
-- `site/`: Next.js (App Router, `output: 'export'`) + Tailwind CSS v4 lookup portal.
+- `site/`: Next.js (App Router, `output: 'export'`, `trailingSlash: true`) + Tailwind CSS v4 multi-page anime-chibi portal (`/`, `/directory/`, `/claim/`, `/health/`).
 - `.github/workflows/`: `validate.yml` (`pull_request_target` using base branch code), `deploy-dns.yml`, `status.yml`, `deploy-site.yml`.
 - `vercel.json`: Optional root-level Vercel build configuration (`npm run site:build` -> `site/out`).
 

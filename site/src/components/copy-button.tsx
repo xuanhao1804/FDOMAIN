@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 interface CopyButtonProps {
   value: string;
   label: string;
+  showText?: boolean;
 }
 
 let lastAnnouncedMessage = "";
@@ -22,7 +23,7 @@ function legacyCopy(text: string): boolean {
   }
 }
 
-export function CopyButton({ value, label }: CopyButtonProps) {
+export function CopyButton({ value, label, showText = false }: CopyButtonProps) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   const [announcement, setAnnouncement] = useState("");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -65,7 +66,7 @@ export function CopyButton({ value, label }: CopyButtonProps) {
       <button
         type="button"
         className="copy-btn"
-        aria-label={label}
+        aria-label={showText ? undefined : label}
         data-copied={state === "copied" ? "" : undefined}
         data-failed={state === "failed" ? "" : undefined}
         onClick={handleCopy}
@@ -78,11 +79,11 @@ export function CopyButton({ value, label }: CopyButtonProps) {
             viewBox="0 0 16 16"
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.75"
+            strokeWidth="2.1"
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
+            <path d="M3 8.5 6.5 12 13 4.5" />
           </svg>
         ) : (
           <svg
@@ -92,14 +93,15 @@ export function CopyButton({ value, label }: CopyButtonProps) {
             viewBox="0 0 16 16"
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.75"
+            strokeWidth="1.9"
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
-            <path d="M10.5 5.5V3.5A1 1 0 0 0 9.5 2.5H3.5A1 1 0 0 0 2.5 3.5V9.5A1 1 0 0 0 3.5 10.5H5.5" />
+            <rect x="5.5" y="5.5" width="8" height="8" rx="2" />
+            <path d="M10.5 5.5V3.8A1.3 1.3 0 0 0 9.2 2.5H3.8A1.3 1.3 0 0 0 2.5 3.8V9.2A1.3 1.3 0 0 0 3.8 10.5H5.5" />
           </svg>
         )}
+        {showText ? <span>{state === "copied" ? "Copied" : "Copy"}</span> : null}
       </button>
       <span className="copy-tip" role="status">
         {announcement}

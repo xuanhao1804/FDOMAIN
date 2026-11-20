@@ -1,278 +1,188 @@
-import { CopyButton } from "@/components/copy-button";
-import { RegistryExplorer } from "@/components/registry-explorer";
+import Link from "next/link";
+import { StatusBadge } from "@/components/status-badge";
 import { loadSiteRegistryData } from "@/lib/registry";
 
-export default function HomePage() {
-  const data = loadSiteRegistryData();
-  const repoUrl = `https://github.com/${data.repository}`;
-  const newFileUrl = `${repoUrl}/new/main/domains`;
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
+export default function OverviewPage() {
+  const data = loadSiteRegistryData();
   const liveCount = data.entries.filter((e) => e.health.status === "live").length;
   const warnCount = data.entries.filter((e) => e.health.status === "warn").length;
   const deadCount = data.entries.filter((e) => e.health.status === "dead").length;
-  const quotaPercent = Math.min(
-    100,
-    Math.round((data.totalDnsRecords / data.limits.maxTotalRecords) * 100),
-  );
-
-  const sampleJson = `{
-  "owner": { "github": "your-github-username" },
-  "description": "My project deployed on Vercel",
-  "records": {
-    "CNAME": "cname.vercel-dns.com"
-  }
-}`;
+  const previewEntries = data.entries.slice(0, 3);
 
   return (
-    <>
-      <a href="#registry-main" className="skip-link">
-        Skip to content
-      </a>
-
-      <header
-        className="border-b"
-        style={{
-          borderColor: "var(--border-color)",
-          backgroundColor: "var(--bg-surface)",
-        }}
+    <div className="reveal-block space-y-6">
+      {/* Hero Lobby Card */}
+      <section
+        aria-labelledby="overview-hero-title"
+        className="chibi-panel relative overflow-hidden px-6 py-6 sm:px-8 sm:py-8"
       >
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <span className="font-mono-code text-sm font-semibold tracking-tight">
-              FDOMAIN
-            </span>
+        <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
+          <div className="flex-1 space-y-4 text-center md:text-left">
             <span
-              className="font-mono-code rounded-full px-2.5 py-0.5 text-xs"
+              className="inline-block rounded-full border px-3 py-0.5 text-xs font-bold"
               style={{
-                backgroundColor: "var(--bg-subtle)",
-                border: "1px solid var(--border-color)",
-                color: "var(--text-muted)",
+                backgroundColor: "var(--sky-soft)",
+                borderColor: "#24324a",
+                color: "#24324a",
               }}
             >
-              *.{data.rootDomain}
+              DNS-as-Code Hub · *.{data.rootDomain}
             </span>
-          </div>
 
-          <nav aria-label="Primary" className="flex items-center gap-4 text-sm">
-            <a
-              href="#claim-guide"
-              className="hover:underline underline-offset-4"
-              style={{ color: "var(--text-muted)" }}
-            >
-              Claim guide
-            </a>
-            <a
-              href={repoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:underline underline-offset-4"
-              style={{ color: "var(--text-muted)" }}
-            >
-              GitHub
-            </a>
-            <a
-              href={newFileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="editorial-btn"
-            >
-              Request subdomain
-            </a>
-          </nav>
-        </div>
-      </header>
+            <h1 id="overview-hero-title" className="font-display text-3xl font-extrabold sm:text-4xl">
+              Personal Subdomain Station
+            </h1>
 
-      <main
-        id="registry-main"
-        tabIndex={-1}
-        className="mx-auto max-w-5xl space-y-16 px-5 py-14 sm:py-20"
-      >
-        <section className="reveal-block space-y-5">
-          <p
-            className="font-mono-code text-xs uppercase tracking-widest"
-            style={{ color: "var(--text-muted)" }}
-          >
-            Personal DNS-as-Code Registry
-          </p>
-          <h1 className="font-editorial max-w-3xl text-4xl font-normal sm:text-5xl">
-            Subdomains under <span className="font-mono-code text-[0.82em]">{data.rootDomain}</span>,
-            versioned in Git.
-          </h1>
-          <p className="max-w-2xl text-base" style={{ color: "var(--text-muted)" }}>
-            Each subdomain lives in a single JSON file. Merged pull requests sync
-            DNS-only records to Cloudflare via DNSControl, while a daily scan flags
-            dangling host targets before takeover can happen.
-          </p>
-        </section>
+            <p className="mx-auto max-w-xl text-sm sm:text-base md:mx-0" style={{ color: "var(--text-muted)" }}>
+              Manage <span className="font-mono-code font-semibold">{data.rootDomain}</span>{" "}
+              subdomains via GitHub Pull Requests, sync DNS-only records to Cloudflare, and catch
+              dangling deployments before takeover.
+            </p>
 
-        <section aria-label="Registry summary" className="reveal-block grid gap-4 sm:grid-cols-3">
-          <div className="editorial-card p-6">
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              Active Entries
-            </p>
-            <p className="font-editorial mt-2 text-3xl font-medium">{data.entries.length}</p>
-            <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
-              {liveCount} live · {warnCount} warn · {deadCount} dead
-            </p>
-          </div>
-
-          <div className="editorial-card p-6">
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              Cloudflare Record Quota
-            </p>
-            <p className="font-editorial mt-2 text-3xl font-medium">
-              {data.totalDnsRecords}
-              <span className="text-base font-normal" style={{ color: "var(--text-muted)" }}>
-                {" "}
-                / {data.limits.maxTotalRecords}
-              </span>
-            </p>
-            <div
-              className="mt-3 h-1.5 w-full overflow-hidden rounded-full"
-              style={{ backgroundColor: "var(--bg-subtle)" }}
-            >
-              <div
-                className="h-full"
-                style={{
-                  width: `${quotaPercent}%`,
-                  backgroundColor: "var(--text-primary)",
-                }}
-              />
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1 md:justify-start">
+              <Link href="/claim" className="chibi-cta">
+                + Claim Subdomain
+              </Link>
+              <Link href="/directory" className="chibi-secondary-btn">
+                Browse Directory ({data.entries.length}) →
+              </Link>
             </div>
           </div>
 
-          <div className="editorial-card p-6">
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              Last Health Scan
-            </p>
-            <p className="font-mono-code mt-2 text-sm font-medium">
-              {data.statusCheckedAt
-                ? new Date(data.statusCheckedAt).toISOString().replace("T", " ").slice(0, 16) + " UTC"
-                : "Pending first daily scan"}
-            </p>
-            <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
-              Alerts open on GitHub Issues under dead-subdomain.
-            </p>
+          <div className="shrink-0">
+            <img
+              src={`${BASE_PATH}/images/chibi-courier.png`}
+              alt="Chibi domain courier waving beside a tiny cloud-pup mascot"
+              width={160}
+              height={265}
+              className="h-44 w-auto select-none sm:h-52"
+            />
           </div>
-        </section>
-
-        <div className="reveal-block">
-          <RegistryExplorer entries={data.entries} rootDomain={data.rootDomain} />
         </div>
+      </section>
 
-        <section
-          id="claim-guide"
-          aria-labelledby="guide-heading"
-          className="reveal-block editorial-card space-y-6 p-6 sm:p-8"
+      {/* Feature Shortcuts */}
+      <section aria-label="Registry sections" className="grid gap-4 sm:grid-cols-3">
+        <Link
+          href="/directory"
+          className="chibi-row-card flex flex-col justify-between gap-3 p-5 no-underline"
         >
-          <div className="space-y-2">
-            <h2 id="guide-heading" className="font-editorial text-2xl font-medium">
-              How to claim or update a subdomain
-            </h2>
-            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-              Trusted contributors get automated merges when editing only their own
-              files; new contributors receive a quick admin review.
+          <div className="space-y-1.5">
+            <span
+              className="inline-block rounded-full border px-2.5 py-0.5 text-xs font-bold"
+              style={{
+                backgroundColor: "var(--sky-soft)",
+                borderColor: "var(--border-color)",
+                color: "#24324a",
+              }}
+            >
+              Lookup
+            </span>
+            <h2 className="font-display text-lg font-extrabold">Subdomain Directory</h2>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+              Search active subdomains, copy CNAME/IP targets, and open edit PRs.
             </p>
           </div>
+          <span className="text-xs font-bold underline underline-offset-4">
+            Open {data.entries.length} entries →
+          </span>
+        </Link>
 
-          <ol role="list" className="grid gap-4 sm:grid-cols-3">
-            <li
-              className="rounded-lg p-4"
+        <Link
+          href="/claim"
+          className="chibi-row-card flex flex-col justify-between gap-3 p-5 no-underline"
+        >
+          <div className="space-y-1.5">
+            <span
+              className="inline-block rounded-full border px-2.5 py-0.5 text-xs font-bold"
               style={{
-                backgroundColor: "var(--bg-subtle)",
-                border: "1px solid var(--border-color)",
+                backgroundColor: "var(--badge-warn-bg)",
+                borderColor: "var(--badge-warn-fg)",
+                color: "var(--badge-warn-fg)",
               }}
             >
-              <p className="font-mono-code text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                01 · DEPLOY FIRST
-              </p>
-              <p className="mt-1.5 text-sm">
-                Host your app on Vercel, Netlify, GitHub Pages, or a VPS and copy its
-                CNAME target or IP address.
-              </p>
-            </li>
-            <li
-              className="rounded-lg p-4"
-              style={{
-                backgroundColor: "var(--bg-subtle)",
-                border: "1px solid var(--border-color)",
-              }}
-            >
-              <p className="font-mono-code text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                02 · ADD JSON FILE
-              </p>
-              <p className="mt-1.5 text-sm">
-                Open a PR adding <code className="font-mono-code">domains/yourname.json</code>{" "}
-                with your GitHub username as <code className="font-mono-code">owner.github</code>.
-              </p>
-            </li>
-            <li
-              className="rounded-lg p-4"
-              style={{
-                backgroundColor: "var(--bg-subtle)",
-                border: "1px solid var(--border-color)",
-              }}
-            >
-              <p className="font-mono-code text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                03 · VERIFY IF ASKED
-              </p>
-              <p className="mt-1.5 text-sm">
-                If Vercel asks for domain verification, add{" "}
-                <code className="font-mono-code">vercelVerify</code>. Other hosts can
-                use <code className="font-mono-code">extra</code>.
-              </p>
-            </li>
-          </ol>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span
-                className="font-mono-code text-xs"
-                style={{ color: "var(--text-muted)" }}
-              >
-                domains/alice.json
-              </span>
-              <CopyButton value={sampleJson} label="Copy sample subdomain JSON" />
-            </div>
-            <pre
-              className="font-mono-code overflow-x-auto rounded-lg p-4 text-xs leading-relaxed"
-              style={{
-                backgroundColor: "var(--bg-subtle)",
-                border: "1px solid var(--border-color)",
-              }}
-            >
-              <code>{sampleJson}</code>
-            </pre>
+              Builder
+            </span>
+            <h2 className="font-display text-lg font-extrabold">Claim JSON Generator</h2>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+              Pick Vercel, GitHub Pages, Netlify, or VPS and generate a PR-ready config.
+            </p>
           </div>
-        </section>
-      </main>
+          <span className="text-xs font-bold underline underline-offset-4">
+            Create new subdomain →
+          </span>
+        </Link>
 
-      <footer
-        className="border-t py-8"
-        style={{
-          borderColor: "var(--border-color)",
-          color: "var(--text-muted)",
-        }}
-      >
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-5 text-xs">
-          <span>
-            Managed via DNSControl + Cloudflare DNS-only · Repo{" "}
-            <a href={repoUrl} target="_blank" rel="noopener noreferrer" className="underline">
-              {data.repository}
-            </a>
-          </span>
-          <span>
-            <a
-              href={`${repoUrl}/issues?q=is%3Aissue+label%3Adead-subdomain`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline"
+        <Link
+          href="/health"
+          className="chibi-row-card flex flex-col justify-between gap-3 p-5 no-underline"
+        >
+          <div className="space-y-1.5">
+            <span
+              className="inline-block rounded-full border px-2.5 py-0.5 text-xs font-bold"
+              style={{
+                backgroundColor: "var(--badge-live-bg)",
+                borderColor: "var(--badge-live-fg)",
+                color: "var(--badge-live-fg)",
+              }}
             >
-              Dead-subdomain alerts
-            </a>
+              Monitor
+            </span>
+            <h2 className="font-display text-lg font-extrabold">Health &amp; Quota</h2>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+              {liveCount} live · {warnCount} warn · {deadCount} dead ·{" "}
+              {data.totalDnsRecords}/{data.limits.maxTotalRecords} records used.
+            </p>
+          </div>
+          <span className="text-xs font-bold underline underline-offset-4">
+            Inspect health scan →
           </span>
+        </Link>
+      </section>
+
+      {/* Compact Recent Subdomains Preview */}
+      <section aria-labelledby="recent-heading" className="chibi-row-card space-y-3 p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="recent-heading" className="font-display text-lg font-extrabold">
+            Active Subdomains
+          </h2>
+          <Link href="/directory" className="text-xs font-bold underline underline-offset-4">
+            View all →
+          </Link>
         </div>
-      </footer>
-    </>
+
+        <ul role="list" className="divide-y" style={{ borderColor: "var(--border-color)" }}>
+          {previewEntries.map((entry) => (
+            <li
+              key={entry.label}
+              className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-1 last:pb-1"
+              style={{ borderColor: "var(--shadow-tint)" }}
+            >
+              <div className="min-w-0">
+                <a
+                  href={`https://${entry.fqdn}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono-code text-sm font-bold underline underline-offset-4"
+                >
+                  {entry.fqdn}
+                </a>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  {entry.description}
+                </p>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                  @{entry.owner.github}
+                </span>
+                <StatusBadge status={entry.health.status} reason={entry.health.reason} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
   );
 }

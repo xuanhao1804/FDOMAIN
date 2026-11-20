@@ -8,3 +8,4 @@
 - **Support `_xxx` verification records via `extra`**: Allows GitHub Pages challenges, ACME DNS-01, and Netlify verification under owner's subdomain, plus `vercelVerify` under `_vercel.<root>`.
 - **Unmanaged dashboard safety**: Apex (`@`) and admin dashboard records remain outside the repo via `IGNORE` + `drift-guard.ts` checking `dnscontrol preview` against managed labels before push.
 - **Lookup UI with Next.js (`output: 'export'`) + Tailwind CSS**: Static output hosts at $0 on GitHub Pages or Vercel while keeping React/Next.js familiarity for future dashboard/auth upgrades without NestJS in v1.
+- **Multi-page bright anime-chibi shell (`site/`)**: Replaced the cramped single-page table with dedicated routes (`/`, `/directory/`, `/claim/`, `/health/`) inside a responsive shell (persistent desktop `<aside>` sidebar + sticky header + native `<dialog>` mobile drawer) so each workflow stays focused without horizontal overflow.
