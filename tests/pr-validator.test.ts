@@ -167,4 +167,46 @@ describe("validatePullRequest", () => {
     expect(res.ok).toBe(true);
     expect(res.autoMergeEligible).toBe(false);
   });
+
+  it("allows trusted user deleting their own file with auto-merge and reports removed DNS records", () => {
+    const oldAlice = domainJson("alice-gh");
+    const res = validatePullRequest({
+      config: CONFIG,
+      prAuthor: "alice-gh",
+      changedFiles: [{ status: "D", path: "domains/alice.json", oldRaw: oldAlice }],
+      baseDomainFiles: [{ filename: "alice.json", raw: oldAlice }],
+      headDomainFiles: [],
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.autoMergeEligible).toBe(true);
+    expect(res.dnsDiff.removed).toEqual([
+      {
+        label: "alice",
+        type: "CNAME",
+        value: "cname.vercel-dns.com.",
+        sourceLabel: "alice",
+      },
+    ]);
+  });
+
+  it("rejects non-admin modification if base file cannot be parsed for ownership verification", () => {
+    const res = validatePullRequest({
+      config: CONFIG,
+      prAuthor: "alice-gh",
+      changedFiles: [
+        {
+          status: "M",
+          path: "domains/alice.json",
+          oldRaw: "{not-json",
+          newRaw: domainJson("alice-gh"),
+        },
+      ],
+      baseDomainFiles: [{ filename: "alice.json", raw: "{not-json" }],
+      headDomainFiles: [{ filename: "alice.json", raw: domainJson("alice-gh") }],
+    });
+
+    expect(res.ok).toBe(false);
+    expect(res.errors.some((e) => /Invalid JSON/.test(e))).toBe(true);
+  });
 });

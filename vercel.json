@@ -1,0 +1,5 @@
+{
+  "installCommand": "npm install && npm --prefix site install",
+  "buildCommand": "npm run site:build",
+  "outputDirectory": "site/out"
+}
