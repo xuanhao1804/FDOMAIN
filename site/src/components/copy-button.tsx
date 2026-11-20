@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { useI18n } from "./i18n-context";
 
 interface CopyButtonProps {
   value: string;
@@ -8,105 +9,80 @@ interface CopyButtonProps {
   showText?: boolean;
 }
 
-let lastAnnouncedMessage = "";
-
-function legacyCopy(text: string): boolean {
-  const field = Object.assign(document.createElement("textarea"), { value: text });
-  field.setAttribute("readonly", "");
-  field.style.cssText = "position:fixed;inset-block-start:0;opacity:0";
-  document.body.append(field);
-  field.select();
-  try {
-    return document.execCommand("copy");
-  } finally {
-    field.remove();
-  }
-}
-
 export function CopyButton({ value, label, showText = false }: CopyButtonProps) {
-  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
-  const [announcement, setAnnouncement] = useState("");
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    if (!value) return;
-    let ok = false;
     try {
       await navigator.clipboard.writeText(value);
-      ok = true;
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      ok = legacyCopy(value);
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
     }
-
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setState(ok ? "copied" : "failed");
-
-    let msg = ok ? "Copied" : "Copy failed";
-    if (msg === lastAnnouncedMessage) {
-      msg += "\u00A0";
-    }
-    lastAnnouncedMessage = msg;
-    setAnnouncement("");
-    requestAnimationFrame(() => setAnnouncement(msg));
-
-    timerRef.current = setTimeout(() => {
-      setState("idle");
-      setAnnouncement("");
-    }, 2000);
   }
 
   return (
-    <span className="copy-wrap">
-      <button
-        type="button"
-        className="copy-btn"
-        style={showText ? { minInlineSize: "5.25rem" } : undefined}
-        aria-label={showText ? undefined : label}
-        data-copied={state === "copied" ? "" : undefined}
-        data-failed={state === "failed" ? "" : undefined}
-        onClick={handleCopy}
+    <button
+      type="button"
+      onClick={handleCopy}
+      aria-label={label}
+      className="relative inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-2 px-2.5 py-1 text-xs font-bold transition-transform active:scale-95"
+      style={{
+        minInlineSize: showText ? "6.75rem" : undefined,
+        borderColor: copied ? "var(--badge-live-fg)" : "var(--border-color)",
+        backgroundColor: copied ? "var(--badge-live-bg)" : "var(--bg-surface)",
+        color: copied ? "var(--badge-live-fg)" : "var(--text-primary)",
+      }}
+    >
+      {copied ? (
+        <svg
+          aria-hidden="true"
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
+        </svg>
+      ) : (
+        <svg
+          aria-hidden="true"
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="5" y="5" width="8.5" height="8.5" rx="2" />
+          <path d="M3 11H2.8A1.3 1.3 0 0 1 1.5 9.7V2.8A1.3 1.3 0 0 1 2.8 1.5h6.9A1.3 1.3 0 0 1 11 2.8V3" />
+        </svg>
+      )}
+      {showText ? <span>{copied ? t("common.copied") : t("common.copy")}</span> : null}
+      <span
+        role="status"
+        aria-live="polite"
+        className="sr-only"
       >
-        {state === "copied" ? (
-          <svg
-            aria-hidden="true"
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.1"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M3 8.5 6.5 12 13 4.5" />
-          </svg>
-        ) : (
-          <svg
-            aria-hidden="true"
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="5.5" y="5.5" width="8" height="8" rx="2" />
-            <path d="M10.5 5.5V3.8A1.3 1.3 0 0 0 9.2 2.5H3.8A1.3 1.3 0 0 0 2.5 3.8V9.2A1.3 1.3 0 0 0 3.8 10.5H5.5" />
-          </svg>
-        )}
-        {showText ? <span>{state === "copied" ? "Copied" : "Copy"}</span> : null}
-      </button>
-      <span className="copy-tip" role="status">
-        {announcement}
+        {copied ? t("common.copied") : ""}
       </span>
-    </span>
+    </button>
   );
 }

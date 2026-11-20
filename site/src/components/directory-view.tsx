@@ -6,6 +6,7 @@ import type { LiveDnsRecord } from "@/lib/dns-providers/types";
 import type { SiteRootDomainMeta, SiteSubdomainItem, SubdomainHealth } from "@/lib/registry";
 import { useAdminSession } from "./admin-context";
 import { CopyButton } from "./copy-button";
+import { useI18n } from "./i18n-context";
 import { StatusBadge } from "./status-badge";
 
 interface DirectoryViewProps {
@@ -21,6 +22,7 @@ export function DirectoryView({
   rootDomains,
   initialDomainFilter,
 }: DirectoryViewProps) {
+  const { t } = useI18n();
   const { authenticated, openLoginModal } = useAdminSession();
 
   const [domainFilter, setDomainFilter] = useState<string>(initialDomainFilter);
@@ -48,7 +50,7 @@ export function DirectoryView({
       const res = await fetch("/api/dns/records", { cache: "no-store" });
       if (!res.ok) {
         const errBody = (await res.json()) as { error?: string };
-        setLiveError(errBody.error ?? "Unable to load live DNS records.");
+        setLiveError(errBody.error ?? t("directory.liveLoadError"));
         return;
       }
       const body = (await res.json()) as { records?: LiveDnsRecord[] };
@@ -58,7 +60,7 @@ export function DirectoryView({
     } finally {
       setLiveLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadLiveRecords();
@@ -86,7 +88,7 @@ export function DirectoryView({
     const queryType = ["CNAME", "A", "AAAA", "TXT"].includes(type.toUpperCase())
       ? type.toUpperCase()
       : "CNAME";
-    setDohResults((prev) => ({ ...prev, [fqdn]: "Checking..." }));
+    setDohResults((prev) => ({ ...prev, [fqdn]: t("directory.dohChecking") }));
     try {
       const res = await fetch(
         `/api/dns/lookup?fqdn=${encodeURIComponent(fqdn)}&type=${encodeURIComponent(queryType)}`,
@@ -98,16 +100,19 @@ export function DirectoryView({
         error?: string;
       };
       if (!res.ok) {
-        setDohResults((prev) => ({ ...prev, [fqdn]: body.error ?? "Error" }));
+        setDohResults((prev) => ({ ...prev, [fqdn]: body.error ?? t("directory.dohErrorFallback") }));
         return;
       }
       const text =
         body.answers && body.answers.length > 0
-          ? `DoH ${queryType}: ${body.answers.map((a) => a.data).join(", ")}`
-          : `DoH: ${body.status ?? "empty"}`;
+          ? t("directory.dohResultFound", {
+              type: queryType,
+              answers: body.answers.map((a) => a.data).join(", "),
+            })
+          : t("directory.dohResultEmpty", { status: body.status ?? "empty" });
       setDohResults((prev) => ({ ...prev, [fqdn]: text }));
     } catch {
-      setDohResults((prev) => ({ ...prev, [fqdn]: "Lookup failed" }));
+      setDohResults((prev) => ({ ...prev, [fqdn]: t("directory.dohLookupFailed") }));
     }
   }
 
@@ -136,13 +141,18 @@ export function DirectoryView({
       });
       const body = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok) {
-        setActionBanner(body.error ?? "Failed to delete DNS record.");
+        setActionBanner(body.error ?? t("directory.deleteErrorFallback"));
       } else {
-        setActionBanner(`Deleted ${pendingDelete.fqdn} (${pendingDelete.type}).`);
+        setActionBanner(
+          t("directory.deletedBanner", {
+            fqdn: pendingDelete.fqdn,
+            type: pendingDelete.type,
+          }),
+        );
         await loadLiveRecords();
       }
     } catch {
-      setActionBanner("Network error while deleting record.");
+      setActionBanner(t("directory.deleteNetworkError"));
     } finally {
       setDeleting(false);
       if (deleteDialogRef.current?.open) {
@@ -188,11 +198,11 @@ export function DirectoryView({
   });
 
   const statusButtons: Array<{ id: StatusFilter; label: string }> = [
-    { id: "all", label: "All" },
-    { id: "live", label: "Live" },
-    { id: "warn", label: "Warn" },
-    { id: "dead", label: "Dead" },
-    { id: "unknown", label: "Pending" },
+    { id: "all", label: t("status.all") },
+    { id: "live", label: t("status.live") },
+    { id: "warn", label: t("status.warn") },
+    { id: "dead", label: t("status.dead") },
+    { id: "unknown", label: t("status.unknown") },
   ];
 
   const hasActiveFilters =
@@ -208,20 +218,20 @@ export function DirectoryView({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-extrabold sm:text-3xl">
-            Multi-Domain Directory
+            {t("directory.title")}
           </h1>
           <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-            Inspect registered subdomains across your root domains, verify live DNS via DoH, and copy records.
+            {t("directory.subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {!authenticated ? (
             <button type="button" onClick={openLoginModal} className="chibi-secondary-btn">
-              Unlock Admin View
+              {t("directory.unlockAdminView")}
             </button>
           ) : null}
           <Link href={activeClaimHref} className="chibi-cta">
-            + New subdomain
+            {t("directory.newSubdomain")}
           </Link>
         </div>
       </div>
@@ -229,7 +239,7 @@ export function DirectoryView({
       {/* Root Domain Switcher Pills */}
       <div
         role="group"
-        aria-label="Filter by root domain"
+        aria-label={t("directory.filterDomainAria")}
         className="flex flex-wrap items-center gap-2"
       >
         <button
@@ -244,7 +254,7 @@ export function DirectoryView({
             boxShadow: domainFilter === "all" ? "0 2px 0 var(--border-color)" : "none",
           }}
         >
-          All Domains ({rootDomains.length})
+          {t("directory.allDomains", { count: rootDomains.length })}
         </button>
         {rootDomains.map((dom) => {
           const active = domainFilter.toLowerCase() === dom.domain.toLowerCase();
@@ -272,7 +282,7 @@ export function DirectoryView({
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="relative flex-1">
             <label htmlFor="subdomain-search" className="sr-only">
-              Search subdomains, owners, or targets
+              {t("directory.searchLabel")}
             </label>
             <svg
               aria-hidden="true"
@@ -298,8 +308,8 @@ export function DirectoryView({
               onChange={(e) => setQuery(e.target.value)}
               placeholder={
                 domainFilter === "all"
-                  ? "Search subdomains, @owner, CNAME, or IP..."
-                  : `Search *.${domainFilter}...`
+                  ? t("directory.searchPlaceholderAll")
+                  : t("directory.searchPlaceholderDomain", { domain: domainFilter })
               }
               autoCorrect="off"
               autoCapitalize="none"
@@ -329,7 +339,7 @@ export function DirectoryView({
             <div
               className="flex flex-wrap items-center gap-1.5"
               role="group"
-              aria-label="Filter by health status"
+              aria-label={t("directory.filterStatusAria")}
             >
               {statusButtons.map((btn) => {
                 const active = statusFilter === btn.id;
@@ -358,7 +368,10 @@ export function DirectoryView({
               className="tabular-nums pl-1 text-xs font-semibold"
               style={{ color: "var(--text-muted)" }}
             >
-              {filteredGitEntries.length} registry · {filteredLiveRecords.length} live
+              {t("directory.summaryCount", {
+                registry: filteredGitEntries.length,
+                live: filteredLiveRecords.length,
+              })}
             </span>
           </div>
         </div>
@@ -381,14 +394,14 @@ export function DirectoryView({
       {/* Section 1: Git Registry Entries */}
       <section aria-labelledby="git-registry-heading" className="space-y-3">
         <h2 id="git-registry-heading" className="font-display text-lg font-extrabold">
-          Tracked Subdomains
+          {t("directory.trackedHeading")}
         </h2>
 
         {filteredGitEntries.length === 0 && filteredLiveRecords.length === 0 ? (
           <div className="chibi-row-card flex flex-col items-center gap-4 px-6 py-12 text-center">
             <img
               src="/images/chibi-mascot-search.png"
-              alt="Cloud-pup mascot holding a magnifying glass"
+              alt={t("directory.mascotAlt")}
               width={116}
               height={132}
               className="h-28 w-auto select-none"
@@ -396,9 +409,9 @@ export function DirectoryView({
             {hasActiveFilters ? (
               <>
                 <div className="space-y-1">
-                  <p className="font-display text-lg font-bold">No matching subdomains</p>
+                  <p className="font-display text-lg font-bold">{t("directory.noMatchTitle")}</p>
                   <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    Try another keyword or reset the domain/status filters.
+                    {t("directory.noMatchDesc")}
                   </p>
                 </div>
                 <button
@@ -410,26 +423,26 @@ export function DirectoryView({
                   }}
                   className="chibi-cta"
                 >
-                  Show all subdomains
+                  {t("directory.showAllButton")}
                 </button>
               </>
             ) : (
               <>
                 <div className="space-y-1">
-                  <p className="font-display text-lg font-bold">No subdomains registered yet</p>
+                  <p className="font-display text-lg font-bold">{t("directory.emptyTitle")}</p>
                   <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    Create your first subdomain in Claim Subdomain, or unlock Admin once Vercel env vars are configured to view Live DNS records.
+                    {t("directory.emptyDesc")}
                   </p>
                 </div>
                 <Link href={activeClaimHref} className="chibi-cta">
-                  + Claim Subdomain
+                  {t("directory.emptyClaimCta")}
                 </Link>
               </>
             )}
           </div>
         ) : filteredGitEntries.length === 0 ? (
           <div className="chibi-row-card px-5 py-6 text-sm" style={{ color: "var(--text-muted)" }}>
-            No Git-tracked JSON files yet — live API records appear below.
+            {t("directory.noGitFilesLiveBelow")}
           </div>
         ) : (
           <ul role="list" className="space-y-3">
@@ -523,7 +536,10 @@ export function DirectoryView({
                             </code>
                             <CopyButton
                               value={rec.value}
-                              label={`Copy ${rec.type} value for ${targetHost}`}
+                              label={t("directory.copyTargetAria", {
+                                type: rec.type,
+                                fqdn: targetHost,
+                              })}
                             />
                           </li>
                         );
@@ -535,17 +551,17 @@ export function DirectoryView({
                       onClick={() => checkLiveDoh(entry.fqdn, firstType)}
                       className="chibi-secondary-btn"
                     >
-                      Check DoH
+                      {t("directory.checkDoh")}
                     </button>
 
                     <a
                       href={entry.editUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      aria-label={`Edit ${entry.fqdn} on GitHub`}
+                      aria-label={t("directory.editAriaLabel", { fqdn: entry.fqdn })}
                       className="chibi-secondary-btn"
                     >
-                      Edit
+                      {t("common.edit")}
                     </a>
                   </div>
                 </li>
@@ -560,12 +576,10 @@ export function DirectoryView({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 id="live-provider-heading" className="font-display text-lg font-extrabold">
-              Live DNS Provider Records
+              {t("directory.liveHeading")}
             </h2>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {authenticated
-                ? "Admin mode unlocked: showing all live API records (protected apex/mail rows cannot be deleted here)."
-                : "Public preview shows safe non-reserved A/AAAA/CNAME endpoints (60s cache). Unlock Admin for full view and delete controls."}
+              {authenticated ? t("directory.liveDescUnlocked") : t("directory.liveDescLocked")}
             </p>
           </div>
           <button
@@ -574,7 +588,7 @@ export function DirectoryView({
             disabled={liveLoading}
             className="chibi-secondary-btn min-w-[10.5rem]"
           >
-            {liveLoading ? "Refreshing..." : "Refresh Live DNS"}
+            {liveLoading ? t("common.refreshing") : t("directory.refreshLiveDns")}
           </button>
         </div>
 
@@ -591,9 +605,7 @@ export function DirectoryView({
           </div>
         ) : filteredLiveRecords.length === 0 ? (
           <div className="chibi-row-card px-5 py-5 text-xs sm:text-sm" style={{ color: "var(--text-muted)" }}>
-            No live API DNS records returned for this selection (or add{" "}
-            <code className="font-mono-code font-bold">NAMECOM_USERNAME</code> /{" "}
-            <code className="font-mono-code font-bold">NAMECOM_TOKEN</code> in Vercel Environment Variables).
+            {t("directory.emptyLiveRecords")}
           </div>
         ) : (
           <ul role="list" className="space-y-2.5">
@@ -619,7 +631,7 @@ export function DirectoryView({
                           color: "var(--badge-muted-fg)",
                         }}
                       >
-                        Protected
+                        {t("directory.protectedBadge")}
                       </span>
                     ) : null}
                   </div>
@@ -632,13 +644,16 @@ export function DirectoryView({
                 </div>
 
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <CopyButton value={rec.value} label={`Copy ${rec.type} value for ${rec.fqdn}`} />
+                  <CopyButton
+                    value={rec.value}
+                    label={t("directory.copyValueAria", { type: rec.type, fqdn: rec.fqdn })}
+                  />
                   <button
                     type="button"
                     onClick={() => checkLiveDoh(rec.fqdn, rec.type)}
                     className="chibi-secondary-btn"
                   >
-                    Check DoH
+                    {t("directory.checkDoh")}
                   </button>
                   {rec.canDelete ? (
                     <button
@@ -651,7 +666,7 @@ export function DirectoryView({
                         color: "var(--badge-dead-fg)",
                       }}
                     >
-                      Delete
+                      {t("common.delete")}
                     </button>
                   ) : null}
                 </div>
@@ -678,19 +693,19 @@ export function DirectoryView({
           style={{ backgroundColor: "var(--badge-dead-bg)", borderColor: "#24324a" }}
         >
           <h2 id="delete-dialog-title" className="font-display text-lg font-extrabold" style={{ color: "var(--badge-dead-fg)" }}>
-            Delete DNS Record?
+            {t("directory.deleteDialogTitle")}
           </h2>
         </div>
 
         <div className="space-y-4 p-5 text-sm">
           {pendingDelete ? (
             <p className="leading-relaxed">
-              This will immediately delete live record{" "}
-              <code className="font-mono-code font-bold">
-                {pendingDelete.type} {pendingDelete.fqdn}
-              </code>{" "}
-              → <code className="font-mono-code">{pendingDelete.value}</code> from{" "}
-              <strong>{pendingDelete.domain}</strong>.
+              {t("directory.deleteDialogBody", {
+                type: pendingDelete.type,
+                fqdn: pendingDelete.fqdn,
+                value: pendingDelete.value,
+                domain: pendingDelete.domain,
+              })}
             </p>
           ) : null}
 
@@ -709,9 +724,7 @@ export function DirectoryView({
                 onChange={(e) => setConfirmReservedDelete(e.target.checked)}
                 className="mt-0.5 h-4 w-4 shrink-0"
               />
-              <span>
-                This is a reserved system label. Confirm deleting it permanently.
-              </span>
+              <span>{t("directory.deleteReservedConfirm")}</span>
             </label>
           ) : null}
 
@@ -722,7 +735,7 @@ export function DirectoryView({
               onClick={() => deleteDialogRef.current?.close("cancel")}
               className="chibi-secondary-btn"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -735,7 +748,7 @@ export function DirectoryView({
                 color: "#ffffff",
               }}
             >
-              {deleting ? "Deleting..." : "Confirm Delete"}
+              {deleting ? t("common.deleting") : t("directory.confirmDeleteAction")}
             </button>
           </div>
         </div>

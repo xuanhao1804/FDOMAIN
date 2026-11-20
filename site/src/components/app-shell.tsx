@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { SiteRootDomainMeta } from "@/lib/registry";
 import { AdminSessionProvider, useAdminSession } from "./admin-context";
+import { LanguageSwitcher, useI18n } from "./i18n-context";
 
 interface AppShellProps {
   rootDomains: SiteRootDomainMeta[];
@@ -16,14 +18,16 @@ interface AppShellProps {
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: MessageKey;
+  titleKey: MessageKey;
   icon: ReactNode;
 }
 
 const NAV_ITEMS: NavItem[] = [
   {
     href: "/",
-    label: "Overview",
+    labelKey: "nav.overview",
+    titleKey: "meta.overviewTitle",
     icon: (
       <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 9.5 10 3.5l7 6V17a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1V9.5Z" />
@@ -32,7 +36,8 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/directory",
-    label: "Directory",
+    labelKey: "nav.directory",
+    titleKey: "meta.directoryTitle",
     icon: (
       <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="4" width="14" height="3.5" rx="1.5" />
@@ -43,7 +48,8 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/claim",
-    label: "Claim Subdomain",
+    labelKey: "nav.claim",
+    titleKey: "meta.claimTitle",
     icon: (
       <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="10" cy="10" r="7.5" />
@@ -53,7 +59,8 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/health",
-    label: "Health & Quota",
+    labelKey: "nav.health",
+    titleKey: "meta.healthTitle",
     icon: (
       <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M2.5 10h3.5l2.2-5 3.6 10 2.2-5h3.5" />
@@ -82,6 +89,7 @@ function SidebarContents({
   maxTotalRecords: number;
   onNavigate?: () => void;
 }) {
+  const { t } = useI18n();
   const { authenticated, configured, openLoginModal, logout } = useAdminSession();
   const quotaPct = Math.min(100, Math.round((totalDnsRecords / maxTotalRecords) * 100));
   const repoUrl = `https://github.com/${repository}`;
@@ -112,11 +120,13 @@ function SidebarContents({
             className="font-mono-code rounded-full border px-2 py-0.5 text-[11px] font-bold"
             style={{ backgroundColor: "#fffdf6", borderColor: "#24324a" }}
           >
-            {rootDomains.length} {rootDomains.length === 1 ? "domain" : "domains"}
+            {rootDomains.length === 1
+              ? t("common.domainCountOne", { count: rootDomains.length })
+              : t("common.domainCountMany", { count: rootDomains.length })}
           </span>
         </Link>
 
-        <nav aria-label="Main navigation">
+        <nav aria-label={t("nav.mainAriaLabel")}>
           <ul role="list" className="space-y-1.5">
             {NAV_ITEMS.map((item) => {
               const active = isRouteActive(pathname, item.href);
@@ -129,11 +139,11 @@ function SidebarContents({
                     className="chibi-nav-link"
                   >
                     {item.icon}
-                    <span className="flex-1">{item.label}</span>
+                    <span className="flex-1 truncate">{t(item.labelKey)}</span>
                     {active ? (
                       <span
                         aria-hidden="true"
-                        className="inline-block h-2 w-2 rounded-full"
+                        className="inline-block h-2 w-2 shrink-0 rounded-full"
                         style={{ backgroundColor: "#24324a" }}
                       />
                     ) : null}
@@ -155,15 +165,19 @@ function SidebarContents({
           }}
         >
           <div className="flex items-center justify-between gap-2 text-xs font-bold">
-            <span>Admin Auto-DNS</span>
+            <span>{t("nav.adminAutoDns")}</span>
             <span
-              className="rounded-full px-2 py-0.5 text-[11px]"
+              className="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
               style={{
                 backgroundColor: authenticated ? "var(--badge-live-bg)" : "var(--badge-muted-bg)",
                 color: authenticated ? "var(--badge-live-fg)" : "var(--badge-muted-fg)",
               }}
             >
-              {authenticated ? "Unlocked" : configured ? "Locked" : "Env Needed"}
+              {authenticated
+                ? t("nav.adminUnlocked")
+                : configured
+                  ? t("nav.adminLocked")
+                  : t("nav.adminEnvNeeded")}
             </span>
           </div>
           {authenticated ? (
@@ -175,7 +189,7 @@ function SidebarContents({
               }}
               className="chibi-secondary-btn mt-2.5 w-full"
             >
-              Lock Admin Session
+              {t("nav.lockAdminSession")}
             </button>
           ) : (
             <button
@@ -186,7 +200,7 @@ function SidebarContents({
               }}
               className="chibi-secondary-btn mt-2.5 w-full"
             >
-              Unlock Admin Mode
+              {t("nav.unlockAdminMode")}
             </button>
           )}
         </div>
@@ -200,7 +214,7 @@ function SidebarContents({
           }}
         >
           <div className="flex items-center justify-between text-xs font-bold">
-            <span>Registry Quota</span>
+            <span>{t("nav.registryQuota")}</span>
             <span className="tabular-nums font-mono-code">
               {totalDnsRecords}/{maxTotalRecords}
             </span>
@@ -215,7 +229,7 @@ function SidebarContents({
             />
           </div>
           <p className="mt-2 text-[11px]" style={{ color: "var(--text-muted)" }}>
-            DNS-only · Free zone safe cap
+            {t("nav.quotaCaption")}
           </p>
         </div>
 
@@ -225,7 +239,7 @@ function SidebarContents({
           rel="noopener noreferrer"
           className="chibi-secondary-btn w-full"
         >
-          GitHub Repository ↗
+          {t("nav.githubRepo")}
         </a>
       </div>
     </div>
@@ -247,6 +261,7 @@ function AppShellInner({
   maxTotalRecords,
   children,
 }: AppShellProps) {
+  const { locale, t } = useI18n();
   const pathname = usePathname() || "/";
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -255,6 +270,11 @@ function AppShellInner({
   const sheetRef = useRef<HTMLDivElement>(null);
 
   const currentNav = NAV_ITEMS.find((item) => isRouteActive(pathname, item.href)) ?? NAV_ITEMS[0]!;
+
+  // Keep browser tab title synchronized with active route and chosen language
+  useEffect(() => {
+    document.title = t(currentNav.titleKey);
+  }, [currentNav.titleKey, locale, t]);
 
   useEffect(() => {
     const drawer = drawerRef.current;
@@ -333,7 +353,7 @@ function AppShellInner({
     <div className="min-h-dvh lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
       {/* Desktop Persistent Sidebar */}
       <aside
-        aria-label="Sidebar navigation"
+        aria-label={t("nav.sidebarAriaLabel")}
         className="hidden border-r-2 lg:block"
         style={{
           backgroundColor: "var(--sidebar-bg)",
@@ -355,7 +375,7 @@ function AppShellInner({
       <dialog
         ref={drawerRef}
         id="mobile-nav-drawer"
-        aria-label="Navigation drawer"
+        aria-label={t("nav.drawerAriaLabel")}
         className="nav-drawer lg:hidden"
         onClick={(e) => {
           if (sheetRef.current && !sheetRef.current.contains(e.target as Node)) {
@@ -379,12 +399,12 @@ function AppShellInner({
               }}
             >
               <span className="font-display text-base font-extrabold" style={{ color: "#24324a" }}>
-                Menu
+                {t("common.menu")}
               </span>
               <button
                 type="button"
                 autoFocus
-                aria-label="Close menu"
+                aria-label={t("common.closeMenu")}
                 onClick={closeDrawer}
                 className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 text-sm font-bold"
                 style={{
@@ -418,11 +438,11 @@ function AppShellInner({
             borderColor: "var(--border-color)",
           }}
         >
-          <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2.5 px-4 py-2.5 sm:gap-3 sm:px-6 lg:px-8">
+          <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-4 py-2.5 sm:gap-3 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-2.5">
               <button
                 type="button"
-                aria-label="Open menu"
+                aria-label={t("common.openMenu")}
                 aria-expanded={drawerOpen}
                 aria-controls="mobile-nav-drawer"
                 onClick={openDrawer}
@@ -449,13 +469,13 @@ function AppShellInner({
               </button>
 
               <span className="font-display truncate text-base font-extrabold sm:text-lg" style={{ color: "#24324a" }}>
-                {currentNav.label}
+                {t(currentNav.labelKey)}
               </span>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2.5">
+            <div className="flex shrink-0 items-center gap-2">
               <span
-                className="font-mono-code hidden rounded-full border-2 px-3 py-1 text-xs font-bold sm:inline-block lg:hidden"
+                className="font-mono-code hidden rounded-full border-2 px-3 py-1 text-xs font-bold md:inline-block lg:hidden"
                 style={{
                   backgroundColor: "var(--bg-surface)",
                   borderColor: "#24324a",
@@ -464,13 +484,18 @@ function AppShellInner({
               >
                 {rootDomains.map((d) => d.domain).join(" · ")}
               </span>
+
+              <LanguageSwitcher compact />
+
               {!isRouteActive(pathname, "/claim") ? (
                 <Link href="/claim" className="chibi-cta whitespace-nowrap">
-                  + Claim<span className="hidden sm:inline"> Subdomain</span>
+                  {t("nav.claimCtaShort")}
+                  <span className="hidden sm:inline">{t("nav.claimCtaSuffix")}</span>
                 </Link>
               ) : (
                 <Link href="/directory" className="chibi-secondary-btn whitespace-nowrap">
-                  <span className="hidden sm:inline">View </span>Directory
+                  <span className="hidden sm:inline">{t("nav.viewDirectoryPrefix")}</span>
+                  {t("nav.viewDirectoryLabel")}
                 </Link>
               )}
             </div>

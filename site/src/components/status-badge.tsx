@@ -1,29 +1,28 @@
+"use client";
+
 import type { SubdomainHealth } from "@/lib/registry";
+import { useI18n } from "./i18n-context";
 
 export const STATUS_META: Record<
   SubdomainHealth,
-  { label: string; symbol: string; bgVar: string; fgVar: string }
+  { symbol: string; bgVar: string; fgVar: string }
 > = {
   live: {
-    label: "Live",
     symbol: "✓",
     bgVar: "var(--badge-live-bg)",
     fgVar: "var(--badge-live-fg)",
   },
   warn: {
-    label: "Warn",
     symbol: "!",
     bgVar: "var(--badge-warn-bg)",
     fgVar: "var(--badge-warn-fg)",
   },
   dead: {
-    label: "Dead",
     symbol: "×",
     bgVar: "var(--badge-dead-bg)",
     fgVar: "var(--badge-dead-fg)",
   },
   unknown: {
-    label: "Pending",
     symbol: "•",
     bgVar: "var(--badge-muted-bg)",
     fgVar: "var(--badge-muted-fg)",
@@ -37,7 +36,17 @@ export function StatusBadge({
   status: SubdomainHealth;
   reason: string;
 }) {
+  const { t } = useI18n();
   const meta = STATUS_META[status];
+  const label =
+    status === "live"
+      ? t("status.live")
+      : status === "warn"
+        ? t("status.warn")
+        : status === "dead"
+          ? t("status.dead")
+          : t("status.unknown");
+
   return (
     <span
       title={reason}
@@ -49,7 +58,7 @@ export function StatusBadge({
       }}
     >
       <span aria-hidden="true">{meta.symbol}</span>
-      <span>{meta.label}</span>
+      <span>{label}</span>
     </span>
   );
 }

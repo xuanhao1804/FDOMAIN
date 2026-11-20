@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { ClaimBuilder } from "@/components/claim-builder";
+import { getServerI18n } from "@/lib/i18n/server";
 import { loadSiteRegistryData } from "@/lib/registry";
 
-export const metadata: Metadata = {
-  title: "Claim & Generate DNS — FDOMAIN",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getServerI18n();
+  return {
+    title: t("meta.claimTitle"),
+  };
+}
 
 export const dynamic = "force-dynamic";
 

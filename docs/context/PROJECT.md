@@ -8,7 +8,7 @@ Personal Multi-Domain Subdomain Station: manages owned root domains (`harrylee.d
 - `domains/`: One JSON file per GitOps subdomain (`domains/<label>.json` for primary domain or `domains/<rootDomain>/<label>.json` for scoped multi-domain).
 - `dnsconfig.js`: DNSControl configuration reading `dist/dns-manifest.json` only for zones marked `dnsProvider: "cloudflare-gitops"`.
 - `scripts/`: TypeScript scripts (`tsx`) for manifest build, Zod multi-domain PR validation, PR diff summary, drift guard, daily health scanner (`status-check`), admin CLI (`npm run sub -- add/remove/list --domain`), and `export-site-data.ts`.
-- `site/`: Fullstack Next.js 15 App Router + Tailwind CSS v4 bright anime-chibi portal (`/`, `/directory/`, `/claim/`, `/health/`) + API routes (`/api/auth/*`, `/api/domains`, `/api/dns/records`, `/api/dns/lookup`, `/api/health`) and `@vercel/functions` metrics.
+- `site/`: Fullstack Next.js 15 App Router + Tailwind CSS v4 bright anime-chibi portal (`/`, `/directory/`, `/claim/`, `/health/`), multi-language JSON catalogs (`site/src/locales/{vi,en}.json`, default `vi` with `fdomain_locale` SSR cookie), API routes (`/api/auth/*`, `/api/domains`, `/api/dns/records`, `/api/dns/lookup`, `/api/health`), and `@vercel/functions` metrics.
 - `site/vercel.json` & root `vercel.json`: Vercel deployment config (`Root Directory = site`, Framework `Next.js`).
 - `.github/workflows/`: `validate.yml` (`pull_request_target`), scoped `deploy-dns.yml`, and `status.yml`.
 

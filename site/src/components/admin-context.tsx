@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import type { DomainCapability, ProviderEnvStatus } from "@/lib/dns-providers/types";
+import { useI18n } from "./i18n-context";
 
 interface AdminContextValue {
   authenticated: boolean;
@@ -45,6 +46,7 @@ export function useAdminSession(): AdminContextValue {
 }
 
 export function AdminSessionProvider({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const [authenticated, setAuthenticated] = useState(false);
   const [configured, setConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -156,7 +158,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   async function handleLoginSubmit(e: FormEvent) {
     e.preventDefault();
     if (!password.trim()) {
-      setLoginError("Please enter the admin password.");
+      setLoginError(t("admin.enterPasswordError"));
       passwordInputRef.current?.focus();
       return;
     }
@@ -171,7 +173,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       });
       const body = (await res.json()) as { authenticated?: boolean; error?: string };
       if (!res.ok) {
-        setLoginError(body.error ?? "Login failed.");
+        setLoginError(body.error ?? t("admin.loginFailedError"));
         passwordInputRef.current?.focus();
         return;
       }
@@ -180,7 +182,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       closeLoginModal();
       await refresh();
     } catch {
-      setLoginError("Network error while signing in.");
+      setLoginError(t("admin.networkError"));
     } finally {
       setSubmitting(false);
     }
@@ -219,11 +221,11 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
           style={{ backgroundColor: "var(--header-bg)", borderColor: "#24324a" }}
         >
           <h2 id="admin-dialog-title" className="font-display text-lg font-extrabold" style={{ color: "#24324a" }}>
-            Admin Unlock
+            {t("admin.dialogTitle")}
           </h2>
           <button
             type="button"
-            aria-label="Close admin sign in"
+            aria-label={t("admin.closeAriaLabel")}
             onClick={closeLoginModal}
             className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 text-xs font-bold"
             style={{
@@ -246,23 +248,18 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
                 color: "var(--badge-warn-fg)",
               }}
             >
-              <p className="font-bold">ADMIN_PASSWORD not set on server</p>
-              <p className="mt-1">
-                Add <code className="font-mono-code font-bold">ADMIN_PASSWORD</code> and{" "}
-                <code className="font-mono-code font-bold">NAMECOM_USERNAME</code> /{" "}
-                <code className="font-mono-code font-bold">NAMECOM_TOKEN</code> in Vercel
-                Environment Variables (or <code className="font-mono-code">.env.local</code>) to enable 1-click live DNS writes.
-              </p>
+              <p className="font-bold">{t("admin.envMissingTitle")}</p>
+              <p className="mt-1">{t("admin.envMissingDesc")}</p>
             </div>
           ) : (
             <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              Sign in to apply live DNS changes on Name.com or Cloudflare without opening a manual PR.
+              {t("admin.signInDesc")}
             </p>
           )}
 
           <div className="space-y-1.5">
             <label htmlFor="admin-password-input" className="block text-xs font-bold uppercase tracking-wide">
-              Admin password
+              {t("admin.passwordLabel")}
             </label>
             <div
               className="flex items-center overflow-hidden rounded-xl border-2"
@@ -281,23 +278,23 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
                 }}
                 aria-invalid={loginError ? "true" : "false"}
                 aria-describedby={loginError ? "admin-login-error" : undefined}
-                placeholder="Enter ADMIN_PASSWORD"
+                placeholder={t("admin.passwordPlaceholder")}
                 className="min-h-11 min-w-0 flex-1 bg-transparent px-3 text-base sm:text-sm"
                 required
               />
               <button
                 type="button"
                 aria-pressed={showPassword}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? t("admin.hidePassword") : t("admin.showPassword")}
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="shrink-0 cursor-pointer border-l-2 px-3 py-2.5 text-xs font-bold"
+                className="min-w-[3.75rem] shrink-0 cursor-pointer border-l-2 px-3 py-2.5 text-center text-xs font-bold"
                 style={{
                   backgroundColor: "var(--bg-subtle)",
                   borderColor: "var(--border-color)",
                   color: "var(--text-primary)",
                 }}
               >
-                {showPassword ? "Hide" : "Show"}
+                {showPassword ? t("admin.hideLabel") : t("admin.showLabel")}
               </button>
             </div>
           </div>
@@ -323,14 +320,14 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
               onClick={closeLoginModal}
               className="chibi-secondary-btn"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
               disabled={submitting}
               className="chibi-cta"
             >
-              {submitting ? "Checking..." : "Unlock Admin"}
+              {submitting ? t("admin.checkingAction") : t("admin.unlockAction")}
             </button>
           </div>
         </form>

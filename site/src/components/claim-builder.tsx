@@ -3,17 +3,19 @@
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import {
   buildPreviewDnsRows,
-  getHardLockReason,
   isReservedSubdomainLabel,
   isValidCnameTarget,
   isValidIpv4,
   isValidSubdomainLabel,
+  matchesUnmanagedRule,
   normalizeExtraPrefix,
   type SupportedRecordType,
 } from "@/lib/dns-rules";
+import { getLocalizedDomainNote, type MessageKey, type Translator } from "@/lib/i18n/messages";
 import type { SiteRootDomainMeta, SiteUnmanagedRule } from "@/lib/registry";
 import { useAdminSession } from "./admin-context";
 import { CopyButton } from "./copy-button";
+import { useI18n } from "./i18n-context";
 
 interface ClaimBuilderProps {
   rootDomains: SiteRootDomainMeta[];
@@ -26,53 +28,86 @@ interface ClaimBuilderProps {
 
 type HostPreset = "vercel" | "github-pages" | "netlify" | "vps";
 
+const HARD_LOCKED_TYPES = new Set(["MX", "NS", "SOA", "SRV", "PTR", "CAA"]);
+
 const PRESET_DEFAULTS: Record<
   HostPreset,
-  { label: string; recordType: SupportedRecordType; target: string; hint: string }
+  { label: string; recordType: SupportedRecordType; target: string; hintKey: MessageKey }
 > = {
   vercel: {
     label: "Vercel",
     recordType: "CNAME",
     target: "cname.vercel-dns.com",
-    hint: "In Vercel Project Settings → Domains, add your full subdomain first.",
+    hintKey: "claim.presetVercelHint",
   },
   "github-pages": {
     label: "GitHub Pages",
     recordType: "CNAME",
     target: "your-username.github.io",
-    hint: "Set custom domain in GitHub Repository → Settings → Pages.",
+    hintKey: "claim.presetGithubHint",
   },
   netlify: {
     label: "Netlify",
     recordType: "CNAME",
     target: "your-site.netlify.app",
-    hint: "Add the custom domain in Netlify Site Configuration → Domain Management.",
+    hintKey: "claim.presetNetlifyHint",
   },
   vps: {
     label: "VPS (IPv4)",
     recordType: "A",
     target: "203.0.113.10",
-    hint: "Point directly to your server public IPv4 address.",
+    hintKey: "claim.presetVpsHint",
   },
 };
 
-function getProviderPill(dom: SiteRootDomainMeta, readyState?: string): {
-  label: string;
-  isAuto: boolean;
-} {
+function getProviderPill(
+  t: Translator,
+  dom: SiteRootDomainMeta,
+  readyState?: string,
+): { label: string; isAuto: boolean } {
   if (dom.dnsProvider === "namecheap-manual") {
-    return { label: "Namecheap · Copy + Verify", isAuto: false };
+    return { label: t("domains.providerNamecheapManual"), isAuto: false };
   }
   if (dom.dnsProvider === "namecom") {
     return {
-      label: readyState === "auto-ready" ? "Name.com · Auto Ready" : "Name.com · Auto API",
+      label:
+        readyState === "auto-ready"
+          ? t("domains.providerNamecomReady")
+          : t("domains.providerNamecomAuto"),
       isAuto: true,
     };
   }
   return {
-    label: readyState === "auto-ready" ? "Cloudflare · Auto Ready" : "Cloudflare · API",
+    label:
+      readyState === "auto-ready"
+        ? t("domains.providerCloudflareReady")
+        : t("domains.providerCloudflareAuto"),
     isAuto: true,
   };
+}
+
+function getLocalizedHardLockReason(
+  t: Translator,
+  hostLabel: string,
+  type: string,
+  value: string,
+  unmanagedRules: SiteUnmanagedRule[],
+): string | null {
+  const cleanLabel = hostLabel.trim().toLowerCase() || "@";
+  const upperType = type.trim().toUpperCase();
+
+  if (cleanLabel === "@") {
+    return t("claim.errHardLockApex");
+  }
+  if (HARD_LOCKED_TYPES.has(upperType)) {
+    return t("claim.errHardLockType", { type: upperType });
+  }
+  for (const rule of unmanagedRules) {
+    if (matchesUnmanagedRule(cleanLabel, upperType, value, rule)) {
+      return t("claim.errHardLockUnmanaged", { label: rule.label, types: rule.types });
+    }
+  }
+  return null;
 }
 
 export function ClaimBuilder({
@@ -83,6 +118,7 @@ export function ClaimBuilder({
   reservedLabels,
   unmanaged,
 }: ClaimBuilderProps) {
+  const { t } = useI18n();
   const { authenticated, configured, capabilities, openLoginModal } = useAdminSession();
 
   const [selectedDomain, setSelectedDomain] = useState(initialDomain);
@@ -141,7 +177,7 @@ export function ClaimBuilder({
     } else {
       setTarget(meta.target);
     }
-    setDescription(`Project hosted on ${meta.label}`);
+    setDescription(t("claim.defaultProjectDesc", { preset: meta.label }));
     setTargetBlurred(false);
     setApplyFeedback(null);
     setDohResult(null);
@@ -149,25 +185,25 @@ export function ClaimBuilder({
 
   const trimmedLabel = subdomainLabel.trim().toLowerCase();
   const hardLockReason = trimmedLabel
-    ? getHardLockReason(trimmedLabel, recordType, target.trim(), unmanaged)
+    ? getLocalizedHardLockReason(t, trimmedLabel, recordType, target.trim(), unmanaged)
     : null;
   const labelInvalidFormat = trimmedLabel.length > 0 && !isValidSubdomainLabel(trimmedLabel);
   const labelEmpty = trimmedLabel.length === 0;
   const labelError = labelEmpty
-    ? "Enter a subdomain label (e.g. blog, api, docs)."
+    ? t("claim.errLabelEmpty")
     : labelInvalidFormat
-      ? "Use lowercase letters, numbers, hyphens, or dots (no leading/trailing hyphen)."
+      ? t("claim.errLabelInvalid")
       : hardLockReason;
 
   const trimmedTarget = target.trim();
   const targetValid =
     recordType === "A" ? isValidIpv4(trimmedTarget) : isValidCnameTarget(trimmedTarget);
   const targetError = !trimmedTarget
-    ? `Enter a valid ${recordType} target.`
+    ? t("claim.errTargetEmpty", { type: recordType })
     : !targetValid
       ? recordType === "A"
-        ? "Enter a valid IPv4 address (e.g. 203.0.113.10)."
-        : "Enter a valid hostname without http:// or paths (e.g. cname.vercel-dns.com)."
+        ? t("claim.errTargetIpv4")
+        : t("claim.errTargetCname")
       : null;
 
   const showLabelError = Boolean(labelError && (labelBlurred || submitAttempted));
@@ -245,7 +281,7 @@ export function ClaimBuilder({
     if (isReservedOnly && !allowReserved) {
       setApplyFeedback({
         kind: "error",
-        text: `Check the confirmation box before applying reserved label "${cleanLabel}".`,
+        text: t("claim.errReservedConfirm", { label: cleanLabel }),
       });
       return;
     }
@@ -279,7 +315,7 @@ export function ClaimBuilder({
       if (!res.ok) {
         setApplyFeedback({
           kind: "error",
-          text: body.error ?? "Failed to create DNS record.",
+          text: body.error ?? t("claim.errCreateFailed"),
         });
         return;
       }
@@ -287,13 +323,16 @@ export function ClaimBuilder({
       setApplyFeedback({
         kind: "success",
         text: createdList
-          ? `Created live on ${activeDomainMeta.registrar}: ${createdList}`
-          : `Created ${fqdn} cleanly.`,
+          ? t("claim.createdLiveSuccess", {
+              registrar: activeDomainMeta.registrar,
+              records: createdList,
+            })
+          : t("claim.createdSimpleSuccess", { fqdn }),
       });
     } catch {
       setApplyFeedback({
         kind: "error",
-        text: "Network error while contacting /api/dns/records.",
+        text: t("claim.errCreateNetwork"),
       });
     } finally {
       setApplying(false);
@@ -318,7 +357,7 @@ export function ClaimBuilder({
         setDohResult({
           status: "error",
           answers: [],
-          error: body.error ?? "DNS lookup failed.",
+          error: body.error ?? t("claim.dohLookupError"),
         });
         return;
       }
@@ -331,21 +370,28 @@ export function ClaimBuilder({
       setDohResult({
         status: "error",
         answers: [],
-        error: "Unable to reach DoH lookup endpoint.",
+        error: t("claim.dohNetworkError"),
       });
     } finally {
       setVerifyingDoh(false);
     }
   }
 
+  function localizedRowPurpose(id: string, fallback: string): string {
+    if (id === "primary") return t("claim.purposePrimary");
+    if (id === "vercel-verify") return t("claim.purposeVercel");
+    if (id === "extra-challenge") return t("claim.purposeChallenge");
+    return fallback;
+  }
+
   return (
     <div className="reveal-block space-y-6">
       <div>
         <h1 className="font-display text-2xl font-extrabold sm:text-3xl">
-          Instant Subdomain Studio
+          {t("claim.title")}
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-          Select one of your available root domains, enter a subdomain prefix, and apply DNS live or copy the generated rows.
+          {t("claim.subtitle")}
         </p>
       </div>
 
@@ -358,13 +404,13 @@ export function ClaimBuilder({
           className="chibi-panel min-w-0 space-y-5 p-5 sm:p-6"
         >
           <h2 id="builder-form-title" className="font-display text-lg font-extrabold">
-            1. Configure Subdomain
+            {t("claim.step1Title")}
           </h2>
 
           {/* Root Domain Selector (consistent structure & fixed card heights) */}
           <fieldset className="min-w-0 space-y-2.5">
             <legend className="text-xs font-bold uppercase tracking-wide">
-              Available Root Domains ({rootDomains.length})
+              {t("claim.availableDomainsLegend", { count: rootDomains.length })}
             </legend>
             <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2">
               {rootDomains.map((dom) => {
@@ -373,7 +419,7 @@ export function ClaimBuilder({
                 const cap = capabilities.find(
                   (c) => c.domain.toLowerCase() === dom.domain.toLowerCase(),
                 );
-                const pill = getProviderPill(dom, cap?.mode);
+                const pill = getProviderPill(t, dom, cap?.mode);
                 const inputId = `domain-choice-${dom.domain}`;
 
                 return (
@@ -427,7 +473,7 @@ export function ClaimBuilder({
                       className="line-clamp-2 min-h-[2.25rem] text-xs leading-snug"
                       style={{ color: selected ? "#24324a" : "var(--text-muted)" }}
                     >
-                      {dom.note ?? `${dom.registrar} zone`}
+                      {getLocalizedDomainNote(t, dom.dnsProvider, dom.registrar, dom.note)}
                     </span>
                   </label>
                 );
@@ -438,7 +484,7 @@ export function ClaimBuilder({
           {/* Subdomain Input + Fixed-Width Right-Aligned Domain Suffix */}
           <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="claim-label" className="text-xs font-bold uppercase tracking-wide">
-              Subdomain name
+              {t("claim.subdomainLabel")}
             </label>
             <div
               className="flex min-w-0 items-center overflow-hidden rounded-xl border-2"
@@ -464,7 +510,7 @@ export function ClaimBuilder({
                 aria-describedby={
                   showLabelError ? "claim-label-hint claim-label-error" : "claim-label-hint"
                 }
-                placeholder="app"
+                placeholder={t("claim.subdomainPlaceholder")}
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
@@ -482,19 +528,19 @@ export function ClaimBuilder({
                 .{activeDomainMeta.domain}
               </span>
             </div>
-            {/* Single fixed-height helper/error slot (no layout shift on blur/error) */}
-            <div className="min-h-[2.25rem] sm:min-h-[1.25rem] text-xs leading-snug">
+            {/* Single fixed-height helper/error slot (no layout shift on blur/error in vi or en) */}
+            <div className="min-h-[2.25rem] sm:min-h-[2.25rem] text-xs leading-snug">
               {showLabelError && labelError ? (
                 <p
                   id="claim-label-error"
                   className="font-bold"
                   style={{ color: "var(--badge-dead-fg)" }}
                 >
-                  Error: {labelError}
+                  {t("common.errorPrefix")} {labelError}
                 </p>
               ) : (
                 <p id="claim-label-hint" style={{ color: "var(--text-muted)" }}>
-                  Lowercase letters, numbers, hyphens, or dots (nested labels).
+                  {t("claim.subdomainHint")}
                 </p>
               )}
             </div>
@@ -517,7 +563,10 @@ export function ClaimBuilder({
                   className="mt-0.5 h-4 w-4 shrink-0"
                 />
                 <span>
-                  &ldquo;{cleanLabel}&rdquo; is reserved (admin-only). Confirm creating it.
+                  {t("claim.reservedCheckboxText", {
+                    label: cleanLabel,
+                    domain: activeDomainMeta.domain,
+                  })}
                 </span>
               </label>
             </div>
@@ -526,7 +575,7 @@ export function ClaimBuilder({
           {/* Deploy Destination Preset */}
           <fieldset className="min-w-0 space-y-2">
             <legend className="text-xs font-bold uppercase tracking-wide">
-              Deploy destination preset
+              {t("claim.presetLegend")}
             </legend>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(PRESET_DEFAULTS) as HostPreset[]).map((key) => {
@@ -559,7 +608,7 @@ export function ClaimBuilder({
               })}
             </div>
             <p className="min-h-[2.25rem] sm:min-h-[1.25rem] text-xs" style={{ color: "var(--text-muted)" }}>
-              {PRESET_DEFAULTS[preset].hint}
+              {t(PRESET_DEFAULTS[preset].hintKey)}
             </p>
           </fieldset>
 
@@ -567,7 +616,7 @@ export function ClaimBuilder({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-1.5">
               <label htmlFor="claim-target" className="text-xs font-bold uppercase tracking-wide">
-                {recordType === "A" ? "Target IPv4 (A)" : "Target Hostname (CNAME)"}
+                {recordType === "A" ? t("claim.targetIpv4Label") : t("claim.targetCnameLabel")}
               </label>
               <input
                 ref={targetInputRef}
@@ -592,10 +641,10 @@ export function ClaimBuilder({
                   borderColor: showTargetError ? "var(--badge-dead-fg)" : "var(--border-color)",
                 }}
               />
-              <div className="min-h-[1.15rem] text-xs">
+              <div className="min-h-[1.75rem] text-xs">
                 {showTargetError && targetError ? (
                   <p id="claim-target-error" className="font-bold" style={{ color: "var(--badge-dead-fg)" }}>
-                    Error: {targetError}
+                    {t("common.errorPrefix")} {targetError}
                   </p>
                 ) : null}
               </div>
@@ -603,7 +652,7 @@ export function ClaimBuilder({
 
             <div className="flex min-w-0 flex-col gap-1.5">
               <label htmlFor="claim-verify-value" className="text-xs font-bold uppercase tracking-wide">
-                {preset === "vercel" ? "Vercel TXT Verify (Opt.)" : "Challenge TXT (Opt.)"}
+                {preset === "vercel" ? t("claim.verifyVercelLabel") : t("claim.verifyExtraLabel")}
               </label>
               <input
                 id="claim-verify-value"
@@ -618,7 +667,7 @@ export function ClaimBuilder({
                 placeholder={
                   preset === "vercel"
                     ? `vc-domain-verify=${fqdn},...`
-                    : "challenge-token"
+                    : t("claim.verifyExtraPlaceholder")
                 }
                 autoCorrect="off"
                 autoCapitalize="none"
@@ -631,12 +680,14 @@ export function ClaimBuilder({
               />
               <div className="flex min-h-[1.75rem] items-center text-[11px]" style={{ color: "var(--text-muted)" }}>
                 {preset === "vercel" ? (
-                  <span className="truncate">Written at _vercel.{activeDomainMeta.domain} if set.</span>
+                  <span className="truncate">
+                    {t("claim.verifyVercelHint", { domain: activeDomainMeta.domain })}
+                  </span>
                 ) : (
                   <span className="inline-flex min-w-0 items-center gap-1.5">
-                    <span>Prefix:</span>
+                    <span>{t("claim.verifyExtraPrefixLabel")}</span>
                     <input
-                      aria-label="Challenge TXT prefix"
+                      aria-label={t("claim.verifyExtraPrefixAria")}
                       type="text"
                       value={extraName}
                       onChange={(e) => setExtraName(e.target.value)}
@@ -656,14 +707,14 @@ export function ClaimBuilder({
             </div>
           </div>
 
-          {/* Stable Footer Slot (identical footprint across Auto & Namecheap domains) */}
+          {/* Stable Footer Slot (identical footprint across Auto & Namecheap domains in both vi and en) */}
           <div className="space-y-3 border-t-2 pt-4" style={{ borderColor: "var(--shadow-tint)" }}>
             <div className="flex min-h-[7.25rem] sm:min-h-[6rem] flex-col justify-between gap-2">
               {isManualOnly ? (
                 <>
                   <p className="min-h-[3.75rem] sm:min-h-[2.4rem] text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                    <strong>Namecheap BasicDNS:</strong> Copy rows from panel 2 → paste into{" "}
-                    <strong>Domain List → Manage → Advanced DNS</strong>, then run DoH Verify.
+                    <strong>{t("claim.namecheapFooterLabel")}</strong>{" "}
+                    {t("claim.namecheapFooterText")}
                   </p>
                   <div className="flex items-center gap-2">
                     <span
@@ -674,19 +725,21 @@ export function ClaimBuilder({
                         color: "var(--badge-warn-fg)",
                       }}
                     >
-                      Manual Copy Mode Active · API Skipped
+                      {t("claim.manualModeBadge")}
                     </span>
                   </div>
                 </>
               ) : (
                 <>
                   <p className="min-h-[3.75rem] sm:min-h-[2.4rem] text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                    <strong>{activeDomainMeta.registrar} Auto API:</strong>{" "}
+                    <strong>
+                      {t("claim.autoApiFooterLabel", { registrar: activeDomainMeta.registrar })}
+                    </strong>{" "}
                     {authenticated
-                      ? "Admin unlocked — click below to write DNS directly without a PR."
+                      ? t("claim.autoApiUnlockedDesc")
                       : configured
-                        ? "Unlock Admin mode once to apply DNS live in one click."
-                        : "Set ADMIN_PASSWORD & registrar tokens on Vercel to enable 1-click writes."}
+                        ? t("claim.autoApiLockedDesc")
+                        : t("claim.autoApiEnvMissingDesc")}
                   </p>
                   {authenticated ? (
                     <button
@@ -695,10 +748,10 @@ export function ClaimBuilder({
                       className="chibi-cta w-full"
                     >
                       {applying
-                        ? "Creating DNS records..."
+                        ? t("claim.creatingDnsAction")
                         : capability?.mode === "auto-needs-env"
-                          ? "Provider API Env Missing on Server"
-                          : "Create DNS Record Now"}
+                          ? t("claim.providerEnvMissingAction")
+                          : t("claim.createDnsAction")}
                     </button>
                   ) : (
                     <button
@@ -706,7 +759,9 @@ export function ClaimBuilder({
                       onClick={openLoginModal}
                       className="chibi-cta w-full"
                     >
-                      {configured ? "Unlock Admin to Apply DNS" : "View Admin Env Setup"}
+                      {configured
+                        ? t("claim.unlockToApplyAction")
+                        : t("claim.viewEnvSetupAction")}
                     </button>
                   )}
                 </>
@@ -745,17 +800,17 @@ export function ClaimBuilder({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <h2 className="font-display text-lg font-extrabold">
-                  2. DNS Records to Apply
+                  {t("claim.step2Title")}
                 </h2>
                 <p
                   className="font-mono-code truncate text-xs font-semibold"
                   style={{ color: "var(--text-muted)" }}
                 >
-                  Target FQDN: {fqdn}
+                  {t("claim.targetFqdnPrefix", { fqdn })}
                 </p>
               </div>
               <div className="shrink-0">
-                <CopyButton value={copyAllSummary} label="Copy all generated DNS records" showText />
+                <CopyButton value={copyAllSummary} label={t("claim.copyAllAria")} showText />
               </div>
             </div>
 
@@ -777,7 +832,9 @@ export function ClaimBuilder({
                       >
                         {row.type}
                       </span>
-                      <span className="text-xs font-bold">{row.purpose}</span>
+                      <span className="text-xs font-bold">
+                        {localizedRowPurpose(row.id, row.purpose)}
+                      </span>
                     </div>
                     <span className="font-mono-code shrink-0 text-[11px]" style={{ color: "var(--text-muted)" }}>
                       TTL {row.ttl}s
@@ -794,13 +851,16 @@ export function ClaimBuilder({
                     >
                       <div className="min-w-0 flex-1 overflow-hidden">
                         <span className="block text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-                          Host / Name
+                          {t("claim.hostLabel")}
                         </span>
                         <code className="font-mono-code block truncate text-xs font-bold">
                           {row.host}
                         </code>
                       </div>
-                      <CopyButton value={row.host} label={`Copy Host ${row.host}`} />
+                      <CopyButton
+                        value={row.host}
+                        label={t("claim.copyHostAria", { host: row.host })}
+                      />
                     </div>
 
                     <div
@@ -812,13 +872,16 @@ export function ClaimBuilder({
                     >
                       <div className="min-w-0 flex-1 overflow-hidden">
                         <span className="block text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-                          Value / Target
+                          {t("claim.valueLabel")}
                         </span>
                         <code className="font-mono-code block truncate text-xs font-bold">
                           {row.value}
                         </code>
                       </div>
-                      <CopyButton value={row.value} label={`Copy Value ${row.value}`} />
+                      <CopyButton
+                        value={row.value}
+                        label={t("claim.copyValueAria", { value: row.value })}
+                      />
                     </div>
                   </div>
                 </li>
@@ -833,7 +896,7 @@ export function ClaimBuilder({
                   disabled={verifyingDoh}
                   className="chibi-secondary-btn min-w-[9.5rem] shrink-0"
                 >
-                  {verifyingDoh ? "Checking DNS..." : "Verify Live DNS"}
+                  {verifyingDoh ? t("claim.checkingDns") : t("claim.verifyLiveDns")}
                 </button>
                 <span
                   className="font-mono-code min-w-0 flex-1 truncate text-right text-xs"
@@ -843,7 +906,7 @@ export function ClaimBuilder({
                 </span>
               </div>
 
-              <div className="min-h-[1.25rem]">
+              <div className="min-h-[2.25rem] sm:min-h-[1.25rem]">
                 {dohResult ? (
                   <p
                     role="status"
@@ -860,12 +923,15 @@ export function ClaimBuilder({
                     {dohResult.error
                       ? dohResult.error
                       : dohResult.answers.length > 0
-                        ? `Live (${dohResult.resolver}): ${dohResult.answers.map((a) => a.data).join(", ")}`
-                        : `Not propagating yet (${dohResult.status})`}
+                        ? t("claim.dohLiveFound", {
+                            resolver: dohResult.resolver ?? "DoH",
+                            answers: dohResult.answers.map((a) => a.data).join(", "),
+                          })
+                        : t("claim.dohNotPropagated", { status: dohResult.status })}
                   </p>
                 ) : (
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    Click Verify Live DNS to query public Cloudflare/Google resolvers.
+                    {t("claim.dohHint")}
                   </p>
                 )}
               </div>
@@ -875,14 +941,14 @@ export function ClaimBuilder({
           {/* Static summary label guarantees 1-line stability regardless of domain/prefix length */}
           <details className="chibi-row-card min-w-0 p-5">
             <summary className="cursor-pointer font-display text-sm font-extrabold">
-              Optional: GitOps PR JSON Mode
+              {t("claim.gitopsSummary")}
             </summary>
 
             <div className="mt-4 space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex min-w-0 flex-col gap-1">
                   <label htmlFor="claim-github" className="text-[11px] font-bold uppercase">
-                    GitHub username
+                    {t("claim.githubUsernameLabel")}
                   </label>
                   <input
                     id="claim-github"
@@ -903,7 +969,7 @@ export function ClaimBuilder({
                 </div>
                 <div className="flex min-w-0 flex-col gap-1">
                   <label htmlFor="claim-desc" className="text-[11px] font-bold uppercase">
-                    Short description
+                    {t("claim.shortDescLabel")}
                   </label>
                   <input
                     id="claim-desc"
@@ -923,7 +989,7 @@ export function ClaimBuilder({
                 <span className="font-mono-code truncate text-xs" style={{ color: "var(--text-muted)" }}>
                   domains/{gitRelativePath}
                 </span>
-                <CopyButton value={jsonOutput} label="Copy generated subdomain JSON" showText />
+                <CopyButton value={jsonOutput} label={t("claim.copyJsonAria")} showText />
               </div>
 
               <pre
@@ -942,7 +1008,7 @@ export function ClaimBuilder({
                 rel="noopener noreferrer"
                 className="chibi-secondary-btn w-full"
               >
-                Open GitHub &amp; Create PR ↗
+                {t("claim.openGithubPr")}
               </a>
             </div>
           </details>

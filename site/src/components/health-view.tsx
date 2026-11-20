@@ -2,9 +2,11 @@
 
 import type { SiteRegistryPayload } from "@/lib/registry";
 import { useAdminSession } from "./admin-context";
+import { useI18n } from "./i18n-context";
 import { StatusBadge } from "./status-badge";
 
 export function HealthView({ data }: { data: SiteRegistryPayload }) {
+  const { t } = useI18n();
   const { authenticated, envStatus, capabilities, openLoginModal } = useAdminSession();
 
   const liveCount = data.entries.filter((e) => e.health.status === "live").length;
@@ -22,10 +24,10 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-extrabold sm:text-3xl">
-            Health, Quota &amp; API Status
+            {t("health.title")}
           </h1>
           <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-            Monitor registry probes, quota limits, and Vercel provider API readiness across all configured root domains.
+            {t("health.subtitle")}
           </p>
         </div>
         <a
@@ -34,7 +36,7 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
           rel="noopener noreferrer"
           className="chibi-secondary-btn"
         >
-          View Alert Issues ↗
+          {t("health.viewAlertIssues")}
         </a>
       </div>
 
@@ -42,7 +44,7 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="chibi-row-card p-5">
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            Root Domains
+            {t("health.rootDomainsCard")}
           </p>
           <p className="font-display tabular-nums mt-2 text-3xl font-extrabold">
             {data.rootDomains.length}
@@ -54,27 +56,27 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
 
         <div className="chibi-row-card p-5">
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            Healthy (Live)
+            {t("health.healthyLiveCard")}
           </p>
           <p className="font-display tabular-nums mt-2 text-3xl font-extrabold">{liveCount}</p>
           <p className="mt-1 text-xs" style={{ color: "var(--badge-live-fg)" }}>
-            HTTP 2xx / 3xx OK ({warnCount + pendingCount} warn/pending)
+            {t("health.healthySubtext", { other: warnCount + pendingCount })}
           </p>
         </div>
 
         <div className="chibi-row-card p-5">
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            Takeover Risk (Dead)
+            {t("health.deadRiskCard")}
           </p>
           <p className="font-display tabular-nums mt-2 text-3xl font-extrabold">{deadCount}</p>
           <p className="mt-1 text-xs" style={{ color: "var(--badge-dead-fg)" }}>
-            Auto-alerts via Issue
+            {t("health.deadSubtext")}
           </p>
         </div>
 
         <div className="chibi-row-card p-5">
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            Registry Record Quota
+            {t("health.quotaCard")}
           </p>
           <p className="font-display tabular-nums mt-2 text-3xl font-extrabold">
             {data.totalDnsRecords}
@@ -98,14 +100,14 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
       <div className="chibi-panel space-y-4 p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="font-display text-lg font-extrabold">Server Environment &amp; Providers</h2>
+            <h2 className="font-display text-lg font-extrabold">{t("health.serverEnvTitle")}</h2>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Boolean readiness checks only — API tokens stay strictly server-side in Vercel Env Vars.
+              {t("health.serverEnvDesc")}
             </p>
           </div>
           {!authenticated ? (
             <button type="button" onClick={openLoginModal} className="chibi-secondary-btn">
-              Unlock Admin
+              {t("health.unlockAdmin")}
             </button>
           ) : null}
         </div>
@@ -115,17 +117,17 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
             {
               name: "ADMIN_PASSWORD",
               ready: envStatus.adminAuthConfigured,
-              desc: "Required to unlock live DNS mutations",
+              desc: t("health.envAdminDesc"),
             },
             {
               name: "NAMECOM_USERNAME + TOKEN",
               ready: envStatus.namecomConfigured,
-              desc: "Auto create/list/delete for Name.com zones",
+              desc: t("health.envNamecomDesc"),
             },
             {
               name: "CLOUDFLARE_API_TOKEN",
               ready: envStatus.cloudflareConfigured,
-              desc: "Optional auto sync for Cloudflare zones",
+              desc: t("health.envCloudflareDesc"),
             },
           ].map((item) => (
             <div
@@ -139,7 +141,7 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
               <div className="flex items-center justify-between gap-2">
                 <code className="font-mono-code text-xs font-bold">{item.name}</code>
                 <span
-                  className="rounded-full px-2 py-0.5 text-[11px] font-bold"
+                  className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold"
                   style={{
                     backgroundColor: item.ready
                       ? "var(--badge-live-bg)"
@@ -149,7 +151,7 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
                       : "var(--badge-warn-fg)",
                   }}
                 >
-                  {item.ready ? "Ready" : "Missing"}
+                  {item.ready ? t("health.readyBadge") : t("health.missingBadge")}
                 </span>
               </div>
               <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
@@ -190,10 +192,10 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
                   }}
                 >
                   {cap.mode === "auto-ready"
-                    ? "Auto-DNS Ready"
+                    ? t("health.capAutoReady")
                     : cap.mode === "auto-needs-env"
-                      ? "Needs API Env"
-                      : "Manual Copy + DoH"}
+                      ? t("health.capNeedsEnv")
+                      : t("health.capManualCopy")}
                 </span>
               </li>
             ))}
@@ -204,11 +206,16 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
       {/* Per-Subdomain Probe Diagnostics */}
       <div className="chibi-panel space-y-4 p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-display text-lg font-extrabold">Git Registry Probe Diagnostics</h2>
+          <h2 className="font-display text-lg font-extrabold">{t("health.probeTitle")}</h2>
           <span className="font-mono-code text-xs" style={{ color: "var(--text-muted)" }}>
             {data.statusCheckedAt
-              ? `Last scan: ${new Date(data.statusCheckedAt).toISOString().replace("T", " ").slice(0, 16)} UTC`
-              : "Awaiting first scheduled status.yml run"}
+              ? t("health.lastScan", {
+                  timestamp: new Date(data.statusCheckedAt)
+                    .toISOString()
+                    .replace("T", " ")
+                    .slice(0, 16),
+                })
+              : t("health.awaitingScan")}
           </span>
         </div>
 
@@ -221,8 +228,7 @@ export function HealthView({ data }: { data: SiteRegistryPayload }) {
               color: "var(--text-muted)",
             }}
           >
-            No Git-tracked JSON files in <code className="font-mono-code font-bold">domains/</code>{" "}
-            yet — provider API readiness above reflects your live deployment state.
+            {t("health.emptyProbeText")}
           </p>
         ) : (
           <ul role="list" className="space-y-2.5">
