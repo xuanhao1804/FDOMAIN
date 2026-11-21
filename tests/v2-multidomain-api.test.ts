@@ -24,6 +24,8 @@ import {
   getHardLockReason,
   isValidSubdomainLabel,
 } from "../site/src/lib/dns-rules.js";
+import { checkSubdomainAvailability } from "../site/src/lib/availability.js";
+import { invalidateDomainCache } from "../site/src/lib/dns-providers/cache.js";
 
 const MULTI_CONFIG: RegistryConfig = {
   rootDomain: "harrylee.dev",
@@ -64,6 +66,8 @@ afterEach(() => {
   delete process.env.NAMECOM_TOKEN;
   delete process.env.CLOUDFLARE_API_TOKEN;
   delete process.env.CLOUDFLARE_ZONE_ID;
+  invalidateDomainCache("harrylee.dev");
+  invalidateDomainCache("vinamuse.store");
 });
 
 describe("Multi-domain config & compiler", () => {
@@ -390,5 +394,232 @@ describe("DNS provider adapters & guards", () => {
     expect(doh.resolver).toBe("google-doh");
     expect(doh.status).toBe("found");
     expect(doh.answers[0]?.data).toBe("cname.vercel-dns.com");
+  });
+});
+
+describe("Subdomain availability check engine", () => {
+  const NAMECOM_DOMAIN = {
+    domain: "harrylee.dev",
+    registrar: "Name.com",
+    dnsProvider: "namecom" as const,
+    gitRecordCount: 0,
+  };
+  const NAMECHEAP_DOMAIN = {
+    domain: "vinamuse.store",
+    registrar: "Namecheap",
+    dnsProvider: "namecheap-manual" as const,
+    gitRecordCount: 0,
+  };
+  const EMPTY_REGISTRY = {
+    entries: [],
+    reservedLabels: MULTI_CONFIG.reservedLabels,
+    unmanaged: MULTI_CONFIG.unmanaged,
+  };
+
+  it("rejects invalid syntax and protected unmanaged labels before any network call", async () => {
+    const mockFetch = vi.fn() as unknown as typeof fetch;
+
+    const invalid = await checkSubdomainAvailability({
+      domainCfg: NAMECOM_DOMAIN,
+      rawLabel: "-bad label-",
+      registryData: EMPTY_REGISTRY,
+      isAdmin: false,
+      fetchImpl: mockFetch,
+    });
+    expect(invalid).toEqual({
+      ok: true,
+      data: expect.objectContaining({ available: false, status: "invalid", source: "validation" }),
+    });
+
+    const protectedRes = await checkSubdomainAvailability({
+      domainCfg: NAMECOM_DOMAIN,
+      rawLabel: "www",
+      registryData: EMPTY_REGISTRY,
+      isAdmin: true,
+      fetchImpl: mockFetch,
+    });
+    expect(protectedRes).toEqual({
+      ok: true,
+      data: expect.objectContaining({ available: false, status: "protected", source: "validation" }),
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("short-circuits public callers on reserved labels without probing upstream APIs", async () => {
+    process.env.NAMECOM_USERNAME = "harry";
+    process.env.NAMECOM_TOKEN = "tok";
+    const mockFetch = vi.fn() as unknown as typeof fetch;
+
+    const res = await checkSubdomainAvailability({
+      domainCfg: NAMECOM_DOMAIN,
+      rawLabel: "admin",
+      registryData: EMPTY_REGISTRY,
+      isAdmin: false,
+      fetchImpl: mockFetch,
+    });
+
+    expect(res).toEqual({
+      ok: true,
+      data: expect.objectContaining({
+        available: false,
+        status: "reserved",
+        canOverride: false,
+        source: "validation",
+      }),
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("checks live Name.com records for auto-ready domains, caches hosts, and handles Admin reserved override", async () => {
+    process.env.NAMECOM_USERNAME = "harry";
+    process.env.NAMECOM_TOKEN = "tok";
+
+    const mockFetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          records: [
+            { id: 1, domainName: "harrylee.dev", host: "blog", fqdn: "blog.harrylee.dev.", type: "CNAME", answer: "cname.vercel-dns.com", ttl: 300 },
+            { id: 2, domainName: "harrylee.dev", host: "status", fqdn: "status.harrylee.dev.", type: "CNAME", answer: "status.example.com", ttl: 300 },
+          ],
+        }),
+        { status: 200 },
+      ),
+    ) as unknown as typeof fetch;
+
+    const taken = await checkSubdomainAvailability({
+      domainCfg: NAMECOM_DOMAIN,
+      rawLabel: "blog",
+      registryData: EMPTY_REGISTRY,
+      isAdmin: false,
+      fetchImpl: mockFetch,
+    });
+    expect(taken).toEqual({
+      ok: true,
+      data: expect.objectContaining({ available: false, status: "taken", source: "live-api" }),
+    });
+
+    const free = await checkSubdomainAvailability({
+      domainCfg: NAMECOM_DOMAIN,
+      rawLabel: "portfolio",
+      registryData: EMPTY_REGISTRY,
+      isAdmin: false,
+      fetchImpl: mockFetch,
+    });
+    expect(free).toEqual({
+      ok: true,
+      data: expect.objectContaining({ available: true, status: "available", source: "live-api" }),
+    });
+    // Second call used the 30s server host-set cache
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    // Admin checking reserved label that ALREADY exists gets "taken"
+    const adminReservedTaken = await checkSubdomainAvailability({
+      domainCfg: NAMECOM_DOMAIN,
+      rawLabel: "status",
+      registryData: EMPTY_REGISTRY,
+      isAdmin: true,
+      fetchImpl: mockFetch,
+    });
+    expect(adminReservedTaken).toEqual({
+      ok: true,
+      data: expect.objectContaining({ available: false, status: "taken", canOverride: false }),
+    });
+
+    // Admin checking unused reserved label gets "reserved" with canOverride: true
+    const adminReservedFree = await checkSubdomainAvailability({
+      domainCfg: NAMECOM_DOMAIN,
+      rawLabel: "admin",
+      registryData: EMPTY_REGISTRY,
+      isAdmin: true,
+      fetchImpl: mockFetch,
+    });
+    expect(adminReservedFree).toEqual({
+      ok: true,
+      data: expect.objectContaining({ available: false, status: "reserved", canOverride: true }),
+    });
+  });
+
+  it("falls back to DoH when Name.com API fails, and returns 502 if both API and DoH fail", async () => {
+    process.env.NAMECOM_USERNAME = "harry";
+    process.env.NAMECOM_TOKEN = "tok";
+
+    const fallbackFetch = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("api.name.com")) {
+        return new Response("upstream error", { status: 503 });
+      }
+      return new Response(JSON.stringify({ Status: 3 }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const fallbackRes = await checkSubdomainAvailability({
+      domainCfg: NAMECOM_DOMAIN,
+      rawLabel: "fresh",
+      registryData: EMPTY_REGISTRY,
+      isAdmin: false,
+      fetchImpl: fallbackFetch,
+    });
+    expect(fallbackRes).toEqual({
+      ok: true,
+      data: expect.objectContaining({
+        available: true,
+        status: "unverified",
+        source: "doh-fallback",
+      }),
+    });
+
+    const totalFailFetch = vi.fn(async () => new Response("down", { status: 503 })) as unknown as typeof fetch;
+    const failed = await checkSubdomainAvailability({
+      domainCfg: NAMECOM_DOMAIN,
+      rawLabel: "fresh",
+      registryData: EMPTY_REGISTRY,
+      isAdmin: false,
+      fetchImpl: totalFailFetch,
+    });
+    expect(failed).toEqual({
+      ok: false,
+      httpStatus: 502,
+      error: expect.any(String),
+    });
+  });
+
+  it("uses DoH for manual Namecheap domains and degrades to unverified if DoH fails", async () => {
+    const dohFoundFetch = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("type=CNAME")) {
+        return new Response(
+          JSON.stringify({
+            Status: 0,
+            Answer: [{ name: "shop.vinamuse.store.", type: 5, TTL: 300, data: "cname.vercel-dns.com." }],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ Status: 3 }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const taken = await checkSubdomainAvailability({
+      domainCfg: NAMECHEAP_DOMAIN,
+      rawLabel: "shop",
+      registryData: EMPTY_REGISTRY,
+      isAdmin: false,
+      fetchImpl: dohFoundFetch,
+    });
+    expect(taken).toEqual({
+      ok: true,
+      data: expect.objectContaining({ available: false, status: "taken", source: "doh" }),
+    });
+
+    const dohDownFetch = vi.fn(async () => new Response("err", { status: 500 })) as unknown as typeof fetch;
+    const unverified = await checkSubdomainAvailability({
+      domainCfg: NAMECHEAP_DOMAIN,
+      rawLabel: "new-shop",
+      registryData: EMPTY_REGISTRY,
+      isAdmin: false,
+      fetchImpl: dohDownFetch,
+    });
+    expect(unverified).toEqual({
+      ok: true,
+      data: expect.objectContaining({ available: true, status: "unverified", source: "doh-error" }),
+    });
   });
 });

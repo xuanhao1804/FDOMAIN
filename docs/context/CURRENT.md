@@ -1,13 +1,13 @@
 # Current State
 
-- **Active Outcome**: Instant sidebar navigation, full RSC prefetching, Phosphor package optimization, font-preload diet, and Singapore `sin1` region ([#6](https://github.com/xuanhao1804/FDOMAIN/issues/6)) on top of zero-shift layout hardening ([#5](https://github.com/xuanhao1804/FDOMAIN/issues/5)).
-- **Status**: `COMPLETED` (Implemented, verified on production `next start`, ready to push to `origin/main`).
+- **Active Outcome**: Minimal 1-form Home with availability check popup, friendly `/claim` & `/directory`, single-purpose sidebar, and refined Light/Dark Mode ([#7](https://github.com/xuanhao1804/FDOMAIN/issues/7)).
+- **Status**: `COMPLETED` (Implemented, verified in production build & live browser across Desktop/Mobile and Light/Dark, pushing to `origin/main`).
 - **Branch**: `main`.
 - **Production URL**: `https://domain.harrylee.dev` (Vercel `Root Directory = site`, single compute region `sin1` Singapore).
 - **Last Verified**:
-  - `npm test`: 7 files, 40 tests passed (`status-check`, `export-site-data`, `drift-guard`, `schema-compiler`, `pr-validator`, `i18n`, `v2-multidomain-api`).
+  - `npm test`: 7 files, 45 tests passed (including 5 new `checkSubdomainAvailability` test suites + 100% `vi`/`en` i18n parity).
   - `npm run typecheck` & `npm --prefix site run typecheck`: passed (`0` errors).
   - `npm run validate`: 0 subdomain files, 0/180 DNS records (`domains/.gitkeep`).
-  - `npm run site:build`: compiled in `6.4s` (down from `16.2s` via `optimizePackageImports: ["@phosphor-icons/react"]`), `First Load JS shared by all: 103 kB`.
-  - Production browser verification (`next start` at `http://localhost:3000`, Desktop `1440x900`): auto-prefetched `/directory`, `/claim`, and `/health` in background (`428ms`), `0` new `_rsc` network requests on every sequential sidebar click, `0` new `/api/dns/records` requests & zero skeleton flash on returning to `/directory`, `VI ↔ EN` Router Cache invalidation verified across `/`, `/claim`, `/directory`, `0` console/hydration/HTTP errors, and `0px` delta on Header + all 4 Sidebar links.
-- **Next Action**: Vercel will automatically deploy `https://domain.harrylee.dev` to `sin1` after `git push origin main`.
+  - `npm run site:build`: passed cleanly (`/` + `/api/dns/availability` + `/claim` + `/directory` + `/health`).
+  - Live browser verification (`next start` at `http://localhost:3000`, Desktop `1440x900` + Mobile `390x844`, Light + Dark, `VI ↔ EN`): confirmed 1-form ambient Home with zero overflow, check-on-submit `GET /api/dns/availability` + native `<dialog>` popup (Name.com auto + Namecheap 2-step manual copy), simplified `/claim` & `/directory`, refined Dark Mode contrast & scroll containment, and `0` console/hydration/HTTP errors.
+- **Next Action**: Vercel automatically deploys `https://domain.harrylee.dev` after pushing to `origin/main`; local server remains live at `http://localhost:3000`.

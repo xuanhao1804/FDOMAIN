@@ -78,8 +78,6 @@ export default async function RootLayout({
           <AppShell
             rootDomains={data.rootDomains}
             repository={data.repository}
-            totalDnsRecords={data.totalDnsRecords}
-            maxTotalRecords={data.limits.maxTotalRecords}
             initialAdminState={initialAdminState}
           >
             {children}

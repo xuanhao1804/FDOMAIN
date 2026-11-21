@@ -37,12 +37,46 @@ export function DeleteRecordDialog({
     }
   }, [record]);
 
+  // Progressive fallback for closedby="any" on browsers without native support
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog || "closedBy" in HTMLDialogElement.prototype) return;
+
+    const isOutside = (e: PointerEvent) => {
+      const r = dialog.getBoundingClientRect();
+      return (
+        e.clientX < r.left ||
+        e.clientX > r.right ||
+        e.clientY < r.top ||
+        e.clientY > r.bottom
+      );
+    };
+
+    let pressedOutside = false;
+    const onDown = (e: PointerEvent) => {
+      pressedOutside = isOutside(e);
+    };
+    const onUp = (e: PointerEvent) => {
+      if (pressedOutside && isOutside(e)) {
+        dialog.close();
+      }
+      pressedOutside = false;
+    };
+    dialog.addEventListener("pointerdown", onDown);
+    dialog.addEventListener("pointerup", onUp);
+    return () => {
+      dialog.removeEventListener("pointerdown", onDown);
+      dialog.removeEventListener("pointerup", onUp);
+    };
+  }, []);
+
   return (
     <dialog
       ref={dialogRef}
       id="confirm-delete-dialog"
       aria-labelledby="delete-dialog-title"
       className="editorial-modal"
+      {...({ closedby: "any" } as Record<string, string>)}
       onClose={() => {
         if (dialogRef.current) dialogRef.current.returnValue = "";
         setConfirmReserved(false);

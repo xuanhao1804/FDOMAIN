@@ -8,7 +8,6 @@ import {
   List,
   LockSimple,
   LockSimpleOpen,
-  Plus,
   PlusCircle,
   Stack,
   X,
@@ -31,8 +30,6 @@ import { ThemeToggle } from "./ui/theme-toggle";
 interface AppShellProps {
   rootDomains: SiteRootDomainMeta[];
   repository: string;
-  totalDnsRecords: number;
-  maxTotalRecords: number;
   initialAdminState: InitialAdminState;
   children: ReactNode;
 }
@@ -108,8 +105,6 @@ function SidebarContents({
   activePath,
   rootDomains,
   repository,
-  totalDnsRecords,
-  maxTotalRecords,
   onPrefetchRoute,
   onOptimisticNavigate,
   onNavigate,
@@ -118,8 +113,6 @@ function SidebarContents({
   activePath: string;
   rootDomains: SiteRootDomainMeta[];
   repository: string;
-  totalDnsRecords: number;
-  maxTotalRecords: number;
   onPrefetchRoute: (href: string) => void;
   onOptimisticNavigate: (href: string) => void;
   onNavigate?: () => void;
@@ -128,7 +121,6 @@ function SidebarContents({
   const tCommon = useTranslations("common");
   const { authenticated, configured, openLoginModal, preloadLoginModal, logout } =
     useAdminSession();
-  const quotaPct = Math.min(100, Math.round((totalDnsRecords / maxTotalRecords) * 100));
   const repoUrl = `https://github.com/${repository}`;
 
   return (
@@ -197,76 +189,62 @@ function SidebarContents({
         </nav>
       </div>
 
-      <div className="space-y-3">
-        {/* Admin Auto-DNS Status Card (fixed badge width — zero hydration/toggle shift) */}
-        <div className="isolated-card rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-3">
-          <div className="flex items-center justify-between gap-1.5 text-xs font-semibold">
-            <span className="whitespace-nowrap text-[var(--text-primary)]">{t("adminAutoDns")}</span>
-            <Badge
-              variant={authenticated ? "live" : configured ? "neutral" : "warn"}
-              className="min-w-[5.25rem] shrink-0 justify-center"
-            >
-              {authenticated
-                ? t("adminUnlocked")
-                : configured
-                  ? t("adminLocked")
-                  : t("adminEnvNeeded")}
-            </Badge>
-          </div>
-          {authenticated ? (
+      {/* Slim, quiet sidebar footer (Quota moved exclusively to /health) */}
+      <div className="space-y-2 border-t border-[var(--border-color)] pt-3.5">
+        {authenticated ? (
+          <div className="isolated-card flex items-center justify-between gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <Badge variant="live" className="shrink-0 px-2 py-0.5 text-[10px]">
+                {t("adminUnlocked")}
+              </Badge>
+              <span className="truncate text-xs font-medium text-[var(--text-secondary)]">
+                {t("adminShort")}
+              </span>
+            </div>
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => {
                 void logout();
                 onNavigate?.();
               }}
-              className="mt-3 w-full"
+              className="min-h-7 shrink-0 px-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
             >
-              <LockSimple size={14} weight="bold" aria-hidden="true" />
+              <LockSimple size={13} weight="bold" aria-hidden="true" />
               <span>{t("lockAdminSession")}</span>
             </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onMouseEnter={preloadLoginModal}
-              onFocus={preloadLoginModal}
-              onClick={() => {
-                onNavigate?.();
-                openLoginModal();
-              }}
-              className="mt-3 w-full"
-            >
-              <LockSimpleOpen size={14} weight="bold" aria-hidden="true" />
-              <span>{t("unlockAdminMode")}</span>
-            </Button>
-          )}
-        </div>
-
-        {/* Registry Quota Card */}
-        <div className="isolated-card rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-3.5">
-          <div className="flex items-center justify-between text-xs font-semibold">
-            <span className="text-[var(--text-primary)]">{t("registryQuota")}</span>
-            <span className="tabular-nums font-mono-code text-[var(--text-secondary)]">
-              {totalDnsRecords}/{maxTotalRecords}
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onMouseEnter={preloadLoginModal}
+            onFocus={preloadLoginModal}
+            onClick={() => {
+              onNavigate?.();
+              openLoginModal();
+            }}
+            className="w-full justify-between gap-2 px-2.5"
+          >
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <LockSimpleOpen size={14} weight="bold" aria-hidden="true" className="shrink-0" />
+              <span className="truncate">{t("unlockAdminMode")}</span>
             </span>
-          </div>
-          <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-subtle)]">
-            <div
-              className="h-full rounded-full bg-[var(--accent-terracotta)]"
-              style={{ width: `${Math.max(quotaPct, totalDnsRecords > 0 ? 4 : 0)}%` }}
-            />
-          </div>
-          <p className="mt-2 text-[11px] text-[var(--text-muted)]">{t("quotaCaption")}</p>
-        </div>
+            <Badge
+              variant={configured ? "neutral" : "warn"}
+              className="shrink-0 px-2 py-0 text-[10px]"
+            >
+              {configured ? t("adminLocked") : t("adminEnvNeeded")}
+            </Badge>
+          </Button>
+        )}
 
         <Button asChild variant="ghost" size="sm" className="w-full justify-between px-3">
           <a href={repoUrl} target="_blank" rel="noopener noreferrer">
-            <span>{t("githubRepo")}</span>
-            <ArrowUpRight size={14} weight="bold" aria-hidden="true" />
+            <span className="text-xs text-[var(--text-muted)]">{t("githubRepo")}</span>
+            <ArrowUpRight size={13} weight="bold" aria-hidden="true" className="text-[var(--text-muted)]" />
           </a>
         </Button>
       </div>
@@ -282,13 +260,7 @@ export function AppShell({ initialAdminState, ...rest }: AppShellProps) {
   );
 }
 
-function AppShellInner({
-  rootDomains,
-  repository,
-  totalDnsRecords,
-  maxTotalRecords,
-  children,
-}: AppShellProps) {
+function AppShellInner({ rootDomains, repository, children }: AppShellProps) {
   const t = useTranslations("nav");
   const tMeta = useTranslations("meta");
   const tCommon = useTranslations("common");
@@ -304,6 +276,7 @@ function AppShellInner({
 
   const activePath = optimisticPath ?? pathname;
   const currentNav = NAV_ITEMS.find((item) => isRouteActive(activePath, item.href)) ?? NAV_ITEMS[0]!;
+  const isHomeRoute = isRouteActive(activePath, "/");
 
   useEffect(() => {
     setOptimisticPath(null);
@@ -395,7 +368,7 @@ function AppShellInner({
   }, [pathname]);
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[264px_minmax(0,1fr)]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[256px_minmax(0,1fr)]">
       {/* Desktop Persistent Sidebar */}
       <aside
         aria-label={t("sidebarAriaLabel")}
@@ -407,8 +380,6 @@ function AppShellInner({
             activePath={activePath}
             rootDomains={rootDomains}
             repository={repository}
-            totalDnsRecords={totalDnsRecords}
-            maxTotalRecords={maxTotalRecords}
             onPrefetchRoute={prefetchRoute}
             onOptimisticNavigate={setOptimisticPath}
           />
@@ -456,8 +427,6 @@ function AppShellInner({
               activePath={activePath}
               rootDomains={rootDomains}
               repository={repository}
-              totalDnsRecords={totalDnsRecords}
-              maxTotalRecords={maxTotalRecords}
               onPrefetchRoute={prefetchRoute}
               onOptimisticNavigate={setOptimisticPath}
               onNavigate={closeDrawer}
@@ -467,7 +436,7 @@ function AppShellInner({
       </dialog>
 
       {/* Main Column */}
-      <div className="flex min-w-0 flex-col">
+      <div className="flex min-h-dvh min-w-0 flex-col">
         <header
           className="sticky top-0 z-20 border-b border-[var(--border-color)] backdrop-blur-md"
           style={{ backgroundColor: "var(--header-bg)" }}
@@ -495,48 +464,6 @@ function AppShellInner({
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <ThemeToggle />
               <LanguageSwitcher />
-
-              {/* Fixed min-width pins ThemeToggle & LanguageSwitcher across all routes & VI/EN */}
-              {!isRouteActive(activePath, "/claim") ? (
-                <Button asChild size="sm" className="min-w-[5.75rem] sm:min-w-[9.5rem]">
-                  <Link
-                    href="/claim"
-                    prefetch={true}
-                    onPointerEnter={() => prefetchRoute("/claim")}
-                    onClick={(e) => {
-                      if (isPlainLeftClick(e) && !isRouteActive(pathname, "/claim")) {
-                        setOptimisticPath("/claim");
-                      }
-                    }}
-                  >
-                    <Plus size={14} weight="bold" aria-hidden="true" />
-                    <span className="sm:hidden">{t("claimCtaShort")}</span>
-                    <span className="hidden sm:inline">{t("claimCtaFull")}</span>
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="min-w-[5.75rem] sm:min-w-[9.5rem]"
-                >
-                  <Link
-                    href="/directory"
-                    prefetch={true}
-                    onPointerEnter={() => prefetchRoute("/directory")}
-                    onClick={(e) => {
-                      if (isPlainLeftClick(e) && !isRouteActive(pathname, "/directory")) {
-                        setOptimisticPath("/directory");
-                      }
-                    }}
-                  >
-                    <Stack size={14} weight="duotone" aria-hidden="true" />
-                    <span className="sm:hidden">{t("viewDirectoryShort")}</span>
-                    <span className="hidden sm:inline">{t("viewDirectoryFull")}</span>
-                  </Link>
-                </Button>
-              )}
             </div>
           </div>
         </header>
@@ -544,7 +471,11 @@ function AppShellInner({
         <main
           id="registry-main"
           tabIndex={-1}
-          className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8"
+          className={
+            isHomeRoute
+              ? "flex min-w-0 flex-1 flex-col"
+              : "mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8"
+          }
         >
           {children}
         </main>

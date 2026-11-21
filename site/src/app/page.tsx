@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { OverviewView } from "@/components/overview-view";
+import { HomeStudio } from "@/components/home-studio";
 import { loadSiteRegistryData } from "@/lib/registry";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -10,7 +10,12 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function OverviewPage() {
+export default function HomePage() {
   const data = loadSiteRegistryData();
-  return <OverviewView data={data} />;
+  return (
+    <HomeStudio
+      rootDomains={data.rootDomains}
+      defaultRootDomain={data.rootDomain}
+    />
+  );
 }

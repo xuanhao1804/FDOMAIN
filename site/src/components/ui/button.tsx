@@ -19,7 +19,7 @@ const buttonVariants = cva(
         destructive:
           "border border-[var(--badge-dead-border)] bg-[var(--badge-dead-bg)] text-[var(--badge-dead-fg)] hover:opacity-90",
         destructiveSolid:
-          "bg-[var(--badge-dead-fg)] text-white hover:opacity-90",
+          "bg-[var(--btn-danger-bg)] text-[var(--btn-danger-fg)] hover:opacity-90",
       },
       size: {
         default: "min-h-9 px-3.5 py-2 text-[13px]",

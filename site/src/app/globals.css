@@ -7,88 +7,118 @@
   --bg-canvas-light: #f7f6f3;
   --bg-surface-light: #ffffff;
   --bg-paper-light: #fbfbf9;
-  --bg-subtle-light: #f1efe9;
-  --bg-hover-light: #eae7df;
+  --bg-subtle-light: #f0eee8;
+  --bg-hover-light: #e7e4dc;
   --sidebar-bg-light: #fbfbf9;
-  --header-bg-light: rgba(251, 251, 249, 0.86);
+  --header-bg-light: rgba(251, 251, 249, 0.88);
 
-  --border-light: #e5e3dc;
-  --border-strong-light: #cbc8be;
+  --border-light: #dfdcd3;
+  --border-strong-light: #b7b3a7;
   --text-primary-light: #161614;
-  --text-secondary-light: #3e3d3a;
-  --text-muted-light: #6e6c67;
+  --text-secondary-light: #3a3935;
+  --text-muted-light: #5d5b56;
 
   --btn-primary-bg-light: #161614;
   --btn-primary-fg-light: #ffffff;
-  --btn-primary-hover-light: #2e2e2a;
+  --btn-primary-hover-light: #2d2d29;
+  --btn-danger-bg-light: #b92b27;
+  --btn-danger-fg-light: #ffffff;
 
-  /* Spot Editorial Accents (Muted Warm Pastels) */
-  --accent-terracotta-light: #b8532f;
+  /* Spot Editorial Accents (Muted Warm Pastels — WCAG AA verified) */
+  --accent-terracotta-light: #a94725;
   --accent-terracotta-bg-light: #f9ebe5;
 
   --badge-live-bg-light: #edf3ec;
-  --badge-live-fg-light: #2a5e39;
-  --badge-live-border-light: #cfe1cc;
+  --badge-live-fg-light: #255734;
+  --badge-live-border-light: #c8dec5;
 
   --badge-info-bg-light: #e7f2fa;
-  --badge-info-fg-light: #1e5f8f;
-  --badge-info-border-light: #c8e0f2;
+  --badge-info-fg-light: #1b5987;
+  --badge-info-border-light: #c2dcf0;
 
   --badge-warn-bg-light: #fbf3db;
-  --badge-warn-fg-light: #8d5a00;
-  --badge-warn-border-light: #ead9a7;
+  --badge-warn-fg-light: #835300;
+  --badge-warn-border-light: #e6d39c;
 
   --badge-dead-bg-light: #fdebeb;
-  --badge-dead-fg-light: #9f2f2d;
-  --badge-dead-border-light: #f3c8c8;
+  --badge-dead-fg-light: #9a2927;
+  --badge-dead-border-light: #f0c2c2;
 
   --badge-muted-bg-light: #efeee9;
-  --badge-muted-fg-light: #575550;
-  --badge-muted-border-light: #dfddd6;
+  --badge-muted-fg-light: #52504b;
+  --badge-muted-border-light: #dad7cf;
 
-  /* Warm Obsidian Palette — Dark */
-  --bg-canvas-dark: #141413;
-  --bg-surface-dark: #1c1c1a;
-  --bg-paper-dark: #191917;
+  --focus-ring-light: #1b5987;
+  --scrollbar-track-light: #efeee9;
+  --scrollbar-thumb-light: #9f9b90;
+  --selection-bg-light: rgba(169, 71, 37, 0.16);
+  --dot-grid-light: rgba(22, 22, 20, 0.085);
+  --hero-glow-light: rgba(184, 83, 47, 0.085);
+  --hero-glow-secondary-light: rgba(186, 154, 114, 0.09);
+  --ring-stroke-light: rgba(22, 22, 20, 0.055);
+  --modal-backdrop-light: rgba(20, 20, 19, 0.44);
+  --modal-shadow-light: 0 20px 48px rgba(0, 0, 0, 0.14);
+  --popover-shadow-light: 0 10px 28px rgba(0, 0, 0, 0.1);
+  --form-bar-shadow-light: 0 10px 30px rgba(22, 22, 20, 0.06);
+
+  /* Warm Obsidian Palette — Dark (tuned for crisp surface hierarchy & contrast) */
+  --bg-canvas-dark: #121211;
+  --bg-surface-dark: #1b1b19;
+  --bg-paper-dark: #161614;
   --bg-subtle-dark: #252522;
-  --bg-hover-dark: #2e2e2a;
-  --sidebar-bg-dark: #171715;
-  --header-bg-dark: rgba(23, 23, 21, 0.86);
+  --bg-hover-dark: #30302b;
+  --sidebar-bg-dark: #161614;
+  --header-bg-dark: rgba(22, 22, 20, 0.88);
 
-  --border-dark: #2c2c28;
-  --border-strong-dark: #44443e;
-  --text-primary-dark: #f4f3ee;
-  --text-secondary-dark: #d2d0c8;
-  --text-muted-dark: #9c9990;
+  --border-dark: #30302b;
+  --border-strong-dark: #52524a;
+  --text-primary-dark: #f5f4ef;
+  --text-secondary-dark: #d6d4cc;
+  --text-muted-dark: #a4a198;
 
-  --btn-primary-bg-dark: #f4f3ee;
-  --btn-primary-fg-dark: #161614;
-  --btn-primary-hover-dark: #e2e0d8;
+  --btn-primary-bg-dark: #f5f4ef;
+  --btn-primary-fg-dark: #141413;
+  --btn-primary-hover-dark: #e2e0d7;
+  --btn-danger-bg-dark: #c93b37;
+  --btn-danger-fg-dark: #ffffff;
 
-  --accent-terracotta-dark: #e2835f;
+  --accent-terracotta-dark: #e68c69;
   --accent-terracotta-bg-dark: #2e1f19;
 
-  --badge-live-bg-dark: #17271d;
-  --badge-live-fg-dark: #8ad1a3;
-  --badge-live-border-dark: #274432;
+  --badge-live-bg-dark: #172a1f;
+  --badge-live-fg-dark: #8fd6a8;
+  --badge-live-border-dark: #2a4c37;
 
-  --badge-info-bg-dark: #162432;
-  --badge-info-fg-dark: #88c2f0;
-  --badge-info-border-dark: #253d56;
+  --badge-info-bg-dark: #162635;
+  --badge-info-fg-dark: #8fc7f3;
+  --badge-info-border-dark: #294560;
 
-  --badge-warn-bg-dark: #2d2412;
-  --badge-warn-fg-dark: #efc46d;
-  --badge-warn-border-dark: #4a3b1c;
+  --badge-warn-bg-dark: #2f2512;
+  --badge-warn-fg-dark: #f2c873;
+  --badge-warn-border-dark: #51401e;
 
-  --badge-dead-bg-dark: #31191a;
-  --badge-dead-fg-dark: #f39c9a;
-  --badge-dead-border-dark: #542a2c;
+  --badge-dead-bg-dark: #331a1b;
+  --badge-dead-fg-dark: #f5a09e;
+  --badge-dead-border-dark: #5c2e30;
 
   --badge-muted-bg-dark: #262622;
-  --badge-muted-fg-dark: #b3b0a6;
-  --badge-muted-border-dark: #383832;
+  --badge-muted-fg-dark: #bdbab0;
+  --badge-muted-border-dark: #3c3c36;
 
-  /* Active Semantic Tokens (Default Light) */
+  --focus-ring-dark: #8fc7f3;
+  --scrollbar-track-dark: #1b1b19;
+  --scrollbar-thumb-dark: #63625a;
+  --selection-bg-dark: rgba(230, 140, 105, 0.28);
+  --dot-grid-dark: rgba(245, 244, 239, 0.085);
+  --hero-glow-dark: rgba(230, 140, 105, 0.11);
+  --hero-glow-secondary-dark: rgba(164, 145, 112, 0.08);
+  --ring-stroke-dark: rgba(245, 244, 239, 0.06);
+  --modal-backdrop-dark: rgba(6, 6, 5, 0.72);
+  --modal-shadow-dark: 0 24px 60px rgba(0, 0, 0, 0.62);
+  --popover-shadow-dark: 0 16px 40px rgba(0, 0, 0, 0.54);
+  --form-bar-shadow-dark: 0 14px 40px rgba(0, 0, 0, 0.38);
+
+  /* Active Semantic Tokens (Fallback Base: Light) */
   --bg-canvas: var(--bg-canvas-light);
   --bg-surface: var(--bg-surface-light);
   --bg-paper: var(--bg-paper-light);
@@ -106,6 +136,8 @@
   --btn-primary-bg: var(--btn-primary-bg-light);
   --btn-primary-fg: var(--btn-primary-fg-light);
   --btn-primary-hover: var(--btn-primary-hover-light);
+  --btn-danger-bg: var(--btn-danger-bg-light);
+  --btn-danger-fg: var(--btn-danger-fg-light);
 
   --accent-terracotta: var(--accent-terracotta-light);
   --accent-terracotta-bg: var(--accent-terracotta-bg-light);
@@ -130,11 +162,18 @@
   --badge-muted-fg: var(--badge-muted-fg-light);
   --badge-muted-border: var(--badge-muted-border-light);
 
-  --focus-ring: #1e5f8f;
-  --scrollbar-track: #efeee9;
-  --scrollbar-thumb: #c4c1b8;
-  --dot-grid-color: rgba(22, 22, 20, 0.065);
-  --hero-glow-color: rgba(184, 83, 47, 0.065);
+  --focus-ring: var(--focus-ring-light);
+  --scrollbar-track: var(--scrollbar-track-light);
+  --scrollbar-thumb: var(--scrollbar-thumb-light);
+  --selection-bg: var(--selection-bg-light);
+  --dot-grid-color: var(--dot-grid-light);
+  --hero-glow-color: var(--hero-glow-light);
+  --hero-glow-secondary: var(--hero-glow-secondary-light);
+  --ring-stroke-color: var(--ring-stroke-light);
+  --modal-backdrop: var(--modal-backdrop-light);
+  --modal-shadow: var(--modal-shadow-light);
+  --popover-shadow: var(--popover-shadow-light);
+  --form-bar-shadow: var(--form-bar-shadow-light);
 }
 
 /* Reflect <meta name="color-scheme"> overrides into CSS cascade */
@@ -157,6 +196,8 @@
   --btn-primary-bg: var(--btn-primary-bg-dark);
   --btn-primary-fg: var(--btn-primary-fg-dark);
   --btn-primary-hover: var(--btn-primary-hover-dark);
+  --btn-danger-bg: var(--btn-danger-bg-dark);
+  --btn-danger-fg: var(--btn-danger-fg-dark);
 
   --accent-terracotta: var(--accent-terracotta-dark);
   --accent-terracotta-bg: var(--accent-terracotta-bg-dark);
@@ -181,11 +222,18 @@
   --badge-muted-fg: var(--badge-muted-fg-dark);
   --badge-muted-border: var(--badge-muted-border-dark);
 
-  --focus-ring: #88c2f0;
-  --scrollbar-track: #1c1c1a;
-  --scrollbar-thumb: #3c3c36;
-  --dot-grid-color: rgba(244, 243, 238, 0.06);
-  --hero-glow-color: rgba(226, 131, 95, 0.08);
+  --focus-ring: var(--focus-ring-dark);
+  --scrollbar-track: var(--scrollbar-track-dark);
+  --scrollbar-thumb: var(--scrollbar-thumb-dark);
+  --selection-bg: var(--selection-bg-dark);
+  --dot-grid-color: var(--dot-grid-dark);
+  --hero-glow-color: var(--hero-glow-dark);
+  --hero-glow-secondary: var(--hero-glow-secondary-dark);
+  --ring-stroke-color: var(--ring-stroke-dark);
+  --modal-backdrop: var(--modal-backdrop-dark);
+  --modal-shadow: var(--modal-shadow-dark);
+  --popover-shadow: var(--popover-shadow-dark);
+  --form-bar-shadow: var(--form-bar-shadow-dark);
 }
 
 :root:has(> head > meta[name="color-scheme"][content="light"]) {
@@ -211,6 +259,8 @@
     --btn-primary-bg: var(--btn-primary-bg-dark);
     --btn-primary-fg: var(--btn-primary-fg-dark);
     --btn-primary-hover: var(--btn-primary-hover-dark);
+    --btn-danger-bg: var(--btn-danger-bg-dark);
+    --btn-danger-fg: var(--btn-danger-fg-dark);
 
     --accent-terracotta: var(--accent-terracotta-dark);
     --accent-terracotta-bg: var(--accent-terracotta-bg-dark);
@@ -235,11 +285,76 @@
     --badge-muted-fg: var(--badge-muted-fg-dark);
     --badge-muted-border: var(--badge-muted-border-dark);
 
-    --focus-ring: #88c2f0;
-    --scrollbar-track: #1c1c1a;
-    --scrollbar-thumb: #3c3c36;
-    --dot-grid-color: rgba(244, 243, 238, 0.06);
-    --hero-glow-color: rgba(226, 131, 95, 0.08);
+    --focus-ring: var(--focus-ring-dark);
+    --scrollbar-track: var(--scrollbar-track-dark);
+    --scrollbar-thumb: var(--scrollbar-thumb-dark);
+    --selection-bg: var(--selection-bg-dark);
+    --dot-grid-color: var(--dot-grid-dark);
+    --hero-glow-color: var(--hero-glow-dark);
+    --hero-glow-secondary: var(--hero-glow-secondary-dark);
+    --ring-stroke-color: var(--ring-stroke-dark);
+    --modal-backdrop: var(--modal-backdrop-dark);
+    --modal-shadow: var(--modal-shadow-dark);
+    --popover-shadow: var(--popover-shadow-dark);
+    --form-bar-shadow: var(--form-bar-shadow-dark);
+  }
+}
+
+/* Modern light-dark() enhancement automatically tracking computed color-scheme */
+@supports (color: light-dark(white, black)) {
+  :root {
+    --bg-canvas: light-dark(var(--bg-canvas-light), var(--bg-canvas-dark));
+    --bg-surface: light-dark(var(--bg-surface-light), var(--bg-surface-dark));
+    --bg-paper: light-dark(var(--bg-paper-light), var(--bg-paper-dark));
+    --bg-subtle: light-dark(var(--bg-subtle-light), var(--bg-subtle-dark));
+    --bg-hover: light-dark(var(--bg-hover-light), var(--bg-hover-dark));
+    --sidebar-bg: light-dark(var(--sidebar-bg-light), var(--sidebar-bg-dark));
+    --header-bg: light-dark(var(--header-bg-light), var(--header-bg-dark));
+
+    --border-color: light-dark(var(--border-light), var(--border-dark));
+    --border-strong: light-dark(var(--border-strong-light), var(--border-strong-dark));
+    --text-primary: light-dark(var(--text-primary-light), var(--text-primary-dark));
+    --text-secondary: light-dark(var(--text-secondary-light), var(--text-secondary-dark));
+    --text-muted: light-dark(var(--text-muted-light), var(--text-muted-dark));
+
+    --btn-primary-bg: light-dark(var(--btn-primary-bg-light), var(--btn-primary-bg-dark));
+    --btn-primary-fg: light-dark(var(--btn-primary-fg-light), var(--btn-primary-fg-dark));
+    --btn-primary-hover: light-dark(var(--btn-primary-hover-light), var(--btn-primary-hover-dark));
+    --btn-danger-bg: light-dark(var(--btn-danger-bg-light), var(--btn-danger-bg-dark));
+    --btn-danger-fg: light-dark(var(--btn-danger-fg-light), var(--btn-danger-fg-dark));
+
+    --accent-terracotta: light-dark(var(--accent-terracotta-light), var(--accent-terracotta-dark));
+    --accent-terracotta-bg: light-dark(var(--accent-terracotta-bg-light), var(--accent-terracotta-bg-dark));
+
+    --badge-live-bg: light-dark(var(--badge-live-bg-light), var(--badge-live-bg-dark));
+    --badge-live-fg: light-dark(var(--badge-live-fg-light), var(--badge-live-fg-dark));
+    --badge-live-border: light-dark(var(--badge-live-border-light), var(--badge-live-border-dark));
+
+    --badge-info-bg: light-dark(var(--badge-info-bg-light), var(--badge-info-bg-dark));
+    --badge-info-fg: light-dark(var(--badge-info-fg-light), var(--badge-info-fg-dark));
+    --badge-info-border: light-dark(var(--badge-info-border-light), var(--badge-info-border-dark));
+
+    --badge-warn-bg: light-dark(var(--badge-warn-bg-light), var(--badge-warn-bg-dark));
+    --badge-warn-fg: light-dark(var(--badge-warn-fg-light), var(--badge-warn-fg-dark));
+    --badge-warn-border: light-dark(var(--badge-warn-border-light), var(--badge-warn-border-dark));
+
+    --badge-dead-bg: light-dark(var(--badge-dead-bg-light), var(--badge-dead-bg-dark));
+    --badge-dead-fg: light-dark(var(--badge-dead-fg-light), var(--badge-dead-fg-dark));
+    --badge-dead-border: light-dark(var(--badge-dead-border-light), var(--badge-dead-border-dark));
+
+    --badge-muted-bg: light-dark(var(--badge-muted-bg-light), var(--badge-muted-bg-dark));
+    --badge-muted-fg: light-dark(var(--badge-muted-fg-light), var(--badge-muted-fg-dark));
+    --badge-muted-border: light-dark(var(--badge-muted-border-light), var(--badge-muted-border-dark));
+
+    --focus-ring: light-dark(var(--focus-ring-light), var(--focus-ring-dark));
+    --scrollbar-track: light-dark(var(--scrollbar-track-light), var(--scrollbar-track-dark));
+    --scrollbar-thumb: light-dark(var(--scrollbar-thumb-light), var(--scrollbar-thumb-dark));
+    --selection-bg: light-dark(var(--selection-bg-light), var(--selection-bg-dark));
+    --dot-grid-color: light-dark(var(--dot-grid-light), var(--dot-grid-dark));
+    --hero-glow-color: light-dark(var(--hero-glow-light), var(--hero-glow-dark));
+    --hero-glow-secondary: light-dark(var(--hero-glow-secondary-light), var(--hero-glow-secondary-dark));
+    --ring-stroke-color: light-dark(var(--ring-stroke-light), var(--ring-stroke-dark));
+    --modal-backdrop: light-dark(var(--modal-backdrop-light), var(--modal-backdrop-dark));
   }
 }
 
@@ -274,12 +389,35 @@
 html {
   background-color: var(--bg-canvas);
   color: var(--text-primary);
+  accent-color: var(--accent-terracotta);
   font-family: var(--font-be-vietnam), "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   line-height: 1.6;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   -webkit-font-smoothing: antialiased;
+}
+
+@supports not (scrollbar-color: auto) {
+  html {
+    scrollbar-width: auto;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+}
+
+::selection {
+  background-color: var(--selection-bg);
+  color: var(--text-primary);
 }
 
 body {
@@ -362,6 +500,51 @@ body {
   }
 }
 
+/* Minimal Home Ambient Editorial Canvas */
+.home-ambient-canvas {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.home-ambient-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image: radial-gradient(var(--dot-grid-color) 1.1px, transparent 1.1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse 68% 62% at 50% 45%, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.28) 58%, transparent 100%);
+}
+
+.home-ambient-canvas::after {
+  content: "";
+  position: absolute;
+  top: 44%;
+  left: 50%;
+  width: min(46rem, 115vw);
+  height: min(32rem, 80vh);
+  transform: translate(-50%, -50%);
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 56% 52% at 38% 42%, var(--hero-glow-color) 0%, transparent 72%),
+    radial-gradient(ellipse 52% 48% at 64% 58%, var(--hero-glow-secondary) 0%, transparent 74%);
+}
+
+.home-form-bar {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: var(--form-bar-shadow);
+  transition: border-color 160ms ease, box-shadow 180ms ease;
+}
+
+.home-form-bar:focus-within {
+  border-color: var(--border-strong);
+}
+
 /* Editorial Hero Subtle Texture & Ambient Depth */
 .editorial-hero-card {
   position: relative;
@@ -369,28 +552,6 @@ body {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-}
-
-.editorial-hero-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: radial-gradient(var(--dot-grid-color) 1px, transparent 1px);
-  background-size: 18px 18px;
-  mask-image: linear-gradient(125deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.18) 60%, transparent 100%);
-}
-
-.editorial-hero-card::after {
-  content: "";
-  position: absolute;
-  top: -6rem;
-  right: -4rem;
-  width: 24rem;
-  height: 24rem;
-  pointer-events: none;
-  border-radius: 9999px;
-  background: radial-gradient(circle, var(--hero-glow-color) 0%, transparent 70%);
 }
 
 /* Flat Bento Surface Cards */
@@ -431,7 +592,7 @@ body {
   background-color: var(--bg-surface);
   border-color: var(--border-color);
   color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 /* CSS Containment for isolated interactive cards (prevents page-wide reflow) */
@@ -442,7 +603,7 @@ body {
 /* Deferred off-screen list rows (ONLY applied to below-the-fold items, index >= 8) */
 .deferred-record-row {
   content-visibility: auto;
-  contain-intrinsic-block-size: auto 6rem;
+  contain-intrinsic-block-size: auto 5.25rem;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -482,6 +643,16 @@ body {
   border-color: var(--badge-dead-fg);
 }
 
+/* Mandatory scroll containment for native modal dialogs (prevents background page scrolling) */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
 /* Native Top-Layer Modal <dialog> */
 dialog.editorial-modal {
   position: fixed;
@@ -492,14 +663,18 @@ dialog.editorial-modal {
   max-height: 90dvh;
   overflow: auto;
   border: 1px solid var(--border-strong);
-  border-radius: 12px;
+  border-radius: 14px;
   background-color: var(--bg-surface);
   color: var(--text-primary);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
+  box-shadow: var(--modal-shadow);
+}
+
+dialog.editorial-modal-wide {
+  width: min(94vw, 33rem);
 }
 
 dialog.editorial-modal::backdrop {
-  background-color: rgba(20, 20, 19, 0.45);
+  background-color: var(--modal-backdrop);
   backdrop-filter: blur(4px);
 }
 
@@ -539,12 +714,12 @@ dialog.nav-drawer {
 }
 
 dialog.nav-drawer::backdrop {
-  background-color: rgba(20, 20, 19, calc(0.42 * var(--drawer-backdrop)));
+  background-color: rgba(20, 20, 19, calc(0.45 * var(--drawer-backdrop)));
 }
 
 @supports (animation-timeline: scroll()) {
   dialog.nav-drawer::backdrop {
-    background-color: rgba(20, 20, 19, 0.42);
+    background-color: rgba(20, 20, 19, 0.45);
     animation: drawer-backdrop-fade linear both;
     animation-timeline: --drawer-scroll;
   }
@@ -622,4 +797,16 @@ details.editorial-accordion summary::-webkit-details-marker {
 }
 details.editorial-accordion summary {
   list-style: none;
+}
+
+/* Forced Colors / High Contrast Mode safeguards */
+@media (forced-colors: active) {
+  .bento-card,
+  .home-form-bar,
+  dialog.editorial-modal {
+    border: 1px solid CanvasText;
+  }
+  .editorial-nav-link[aria-current="page"] {
+    border: 1px solid Highlight;
+  }
 }

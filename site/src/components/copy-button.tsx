@@ -10,10 +10,11 @@ interface CopyButtonProps {
   value: string;
   label: string;
   showText?: boolean;
+  text?: string;
   className?: string;
 }
 
-export function CopyButton({ value, label, showText = false, className }: CopyButtonProps) {
+export function CopyButton({ value, label, showText = false, text, className }: CopyButtonProps) {
   const t = useTranslations("common");
   const [copied, setCopied] = useState(false);
 
@@ -43,7 +44,7 @@ export function CopyButton({ value, label, showText = false, className }: CopyBu
       size={showText ? "sm" : "iconSm"}
       onClick={handleCopy}
       aria-label={label}
-      style={showText ? { minInlineSize: "6.75rem" } : undefined}
+      style={showText ? { minInlineSize: text ? "7.75rem" : "6.75rem" } : undefined}
       className={cn(
         copied &&
           "border-[var(--badge-live-border)] bg-[var(--badge-live-bg)] text-[var(--badge-live-fg)] hover:bg-[var(--badge-live-bg)]",
@@ -55,7 +56,7 @@ export function CopyButton({ value, label, showText = false, className }: CopyBu
       ) : (
         <Copy size={14} weight="duotone" aria-hidden="true" />
       )}
-      {showText ? <span>{copied ? t("copied") : t("copy")}</span> : null}
+      {showText ? <span>{copied ? t("copied") : (text ?? t("copy"))}</span> : null}
       <span role="status" aria-live="polite" className="sr-only">
         {copied ? t("copied") : ""}
       </span>

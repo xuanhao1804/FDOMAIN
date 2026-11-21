@@ -23,14 +23,9 @@ export default function DirectoryLoading() {
 
       <div className="space-y-2.5">
         <Skeleton className="h-6 w-52" />
-        <Card className="h-[6rem] p-5" />
-        <Card className="h-[6rem] p-5" />
-        <Card className="h-[6rem] p-5" />
-      </div>
-
-      <div className="space-y-2.5">
-        <Skeleton className="h-6 w-48" />
-        <Card className="h-16 p-5" />
+        <Card className="h-[5.25rem] p-5" />
+        <Card className="h-[5.25rem] p-5" />
+        <Card className="h-[5.25rem] p-5" />
       </div>
     </div>
   );

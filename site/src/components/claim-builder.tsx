@@ -1,13 +1,18 @@
 "use client";
 
 import {
+  ArrowUpRight,
   Broadcast,
+  CaretDown,
   CheckCircle,
   CloudCheck,
   Code,
   CopySimple,
+  Globe,
+  HardDrives,
   LockSimpleOpen,
   Plus,
+  RocketLaunch,
   WarningCircle,
 } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
@@ -52,6 +57,7 @@ const LazyGitOpsPrPanel = dynamic(importGitOpsPanel, {
 interface ClaimBuilderProps {
   rootDomains: SiteRootDomainMeta[];
   initialDomain: string;
+  initialLabel?: string;
   defaultRootDomain: string;
   repository: string;
   reservedLabels: string[];
@@ -65,28 +71,33 @@ const HARD_LOCKED_TYPES = new Set(["MX", "NS", "SOA", "SRV", "PTR", "CAA"]);
 
 const PRESET_DEFAULTS: Record<
   HostPreset,
-  { label: string; recordType: SupportedRecordType; target: string; hintKey: PresetHintKey }
+  {
+    labelKey: "presetVercel" | "presetGithub" | "presetNetlify" | "presetVps";
+    recordType: SupportedRecordType;
+    target: string;
+    hintKey: PresetHintKey;
+  }
 > = {
   vercel: {
-    label: "Vercel",
+    labelKey: "presetVercel",
     recordType: "CNAME",
     target: "cname.vercel-dns.com",
     hintKey: "presetVercelHint",
   },
   "github-pages": {
-    label: "GitHub Pages",
+    labelKey: "presetGithub",
     recordType: "CNAME",
     target: "your-username.github.io",
     hintKey: "presetGithubHint",
   },
   netlify: {
-    label: "Netlify",
+    labelKey: "presetNetlify",
     recordType: "CNAME",
     target: "your-site.netlify.app",
     hintKey: "presetNetlifyHint",
   },
   vps: {
-    label: "VPS (IPv4)",
+    labelKey: "presetVps",
     recordType: "A",
     target: "203.0.113.10",
     hintKey: "presetVpsHint",
@@ -96,19 +107,21 @@ const PRESET_DEFAULTS: Record<
 export function ClaimBuilder({
   rootDomains,
   initialDomain,
+  initialLabel = "",
   defaultRootDomain,
   repository,
   reservedLabels,
   unmanaged,
 }: ClaimBuilderProps) {
   const t = useTranslations("claim");
+  const tPopup = useTranslations("popup");
   const tDomains = useTranslations("domains");
   const tCommon = useTranslations("common");
   const { authenticated, configured, capabilities, openLoginModal, preloadLoginModal } =
     useAdminSession();
 
   const [selectedDomain, setSelectedDomain] = useState(initialDomain);
-  const [subdomainLabel, setSubdomainLabel] = useState("my-app");
+  const [subdomainLabel, setSubdomainLabel] = useState(initialLabel || "my-app");
   const [labelBlurred, setLabelBlurred] = useState(false);
 
   const [preset, setPreset] = useState<HostPreset>("vercel");
@@ -116,10 +129,11 @@ export function ClaimBuilder({
   const [targetBlurred, setTargetBlurred] = useState(false);
 
   const [githubUser, setGithubUser] = useState("");
-  const [description, setDescription] = useState("My project deployed on Vercel");
+  const [description, setDescription] = useState("My website on Vercel");
   const [vercelVerify, setVercelVerify] = useState("");
   const [extraName, setExtraName] = useState("");
   const [extraTxt, setExtraTxt] = useState("");
+  const [verifyOpen, setVerifyOpen] = useState(false);
   const [allowReserved, setAllowReserved] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [gitOpsOpen, setGitOpsOpen] = useState(false);
@@ -133,7 +147,6 @@ export function ClaimBuilder({
   const [verifyingDoh, setVerifyingDoh] = useState(false);
   const [dohResult, setDohResult] = useState<{
     status: string;
-    resolver?: string;
     answers: Array<{ data: string; ttl: number }>;
     error?: string;
   } | null>(null);
@@ -151,6 +164,7 @@ export function ClaimBuilder({
   const capability = capabilities.find(
     (c) => c.domain.toLowerCase() === activeDomainMeta.domain.toLowerCase(),
   );
+  const isAutoReady = capability?.mode === "auto-ready";
   const isManualOnly = activeDomainMeta.dnsProvider === "namecheap-manual";
   const recordType = PRESET_DEFAULTS[preset].recordType;
 
@@ -160,39 +174,14 @@ export function ClaimBuilder({
     [rootDomains],
   );
 
-  function getProviderPill(dom: SiteRootDomainMeta, readyState?: string) {
+  function localizedDomainNote(dom: SiteRootDomainMeta, mode?: string): string {
     if (dom.dnsProvider === "namecheap-manual") {
-      return { label: tDomains("providerNamecheapManual"), isAuto: false };
-    }
-    if (dom.dnsProvider === "namecom") {
-      return {
-        label:
-          readyState === "auto-ready"
-            ? tDomains("providerNamecomReady")
-            : tDomains("providerNamecomAuto"),
-        isAuto: true,
-      };
-    }
-    return {
-      label:
-        readyState === "auto-ready"
-          ? tDomains("providerCloudflareReady")
-          : tDomains("providerCloudflareAuto"),
-      isAuto: true,
-    };
-  }
-
-  function localizedDomainNote(dom: SiteRootDomainMeta): string {
-    if (dom.dnsProvider === "namecom" && (!dom.note || dom.note.includes("Name.com Core API"))) {
-      return tDomains("noteNamecom");
-    }
-    if (
-      dom.dnsProvider === "namecheap-manual" &&
-      (!dom.note || dom.note.includes("Namecheap BasicDNS"))
-    ) {
       return tDomains("noteNamecheap");
     }
-    return dom.note ?? tDomains("noteFallback", { registrar: dom.registrar });
+    if (mode === "auto-ready") {
+      return tDomains("noteAutoReady");
+    }
+    return tDomains("noteAutoNeedsEnv", { registrar: dom.registrar });
   }
 
   function getHardLockMessage(hostLabel: string, type: string, value: string): string | null {
@@ -202,7 +191,7 @@ export function ClaimBuilder({
     if (HARD_LOCKED_TYPES.has(upperType)) return t("errHardLockType", { type: upperType });
     for (const rule of unmanaged) {
       if (matchesUnmanagedRule(clean, upperType, value, rule)) {
-        return t("errHardLockUnmanaged", { label: rule.label, types: rule.types });
+        return t("errHardLockUnmanaged", { label: rule.label });
       }
     }
     return null;
@@ -216,7 +205,7 @@ export function ClaimBuilder({
     } else {
       setTarget(meta.target);
     }
-    setDescription(t("defaultProjectDesc", { preset: meta.label }));
+    setDescription(t("defaultProjectDesc", { preset: tPopup(meta.labelKey) }));
     setTargetBlurred(false);
     setApplyFeedback(null);
     setDohResult(null);
@@ -238,7 +227,7 @@ export function ClaimBuilder({
   const targetValid =
     recordType === "A" ? isValidIpv4(trimmedTarget) : isValidCnameTarget(trimmedTarget);
   const targetError = !trimmedTarget
-    ? t("errTargetEmpty", { type: recordType })
+    ? t("errTargetEmpty")
     : !targetValid
       ? recordType === "A"
         ? t("errTargetIpv4")
@@ -338,7 +327,7 @@ export function ClaimBuilder({
         });
         return;
       }
-      const createdList = body.created?.map((c) => `${c.type} ${c.fqdn} → ${c.value}`).join("; ");
+      const createdList = body.created?.map((c) => `${c.fqdn} → ${c.value}`).join("; ");
       invalidateLiveRecordsCache();
       setApplyFeedback({
         kind: "success",
@@ -369,7 +358,6 @@ export function ClaimBuilder({
       );
       const body = (await res.json()) as {
         status?: string;
-        resolver?: string;
         answers?: Array<{ data: string; ttl: number }>;
         error?: string;
       };
@@ -383,7 +371,6 @@ export function ClaimBuilder({
       }
       setDohResult({
         status: body.status ?? "empty",
-        resolver: body.resolver,
         answers: body.answers ?? [],
       });
     } catch {
@@ -414,7 +401,7 @@ export function ClaimBuilder({
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-        {/* Left: Form Studio Card (isolated containment + fully reserved geometry slots) */}
+        {/* Left: Calm, Non-Technical Friendly Builder Form */}
         <form
           onSubmit={handleCreateLiveDns}
           noValidate
@@ -425,9 +412,9 @@ export function ClaimBuilder({
             {t("step1Title")}
           </h2>
 
-          {/* Root Domain Selector (uniform structure & fixed card heights) */}
+          {/* Friendly Root Domain Selector */}
           <fieldset className="min-w-0 space-y-2.5">
-            <legend className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
+            <legend className="text-xs font-semibold text-[var(--text-secondary)]">
               {t("availableDomainsLegend", { count: rootDomains.length })}
             </legend>
             <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2">
@@ -437,7 +424,7 @@ export function ClaimBuilder({
                 const cap = capabilities.find(
                   (c) => c.domain.toLowerCase() === dom.domain.toLowerCase(),
                 );
-                const pill = getProviderPill(dom, cap?.mode);
+                const isDomAuto = cap?.mode === "auto-ready";
                 const inputId = `domain-choice-${dom.domain}`;
 
                 return (
@@ -445,7 +432,7 @@ export function ClaimBuilder({
                     key={dom.domain}
                     htmlFor={inputId}
                     className={cn(
-                      "choice-card flex min-w-0 cursor-pointer flex-col justify-between gap-2.5 rounded-lg border p-3.5 transition-colors",
+                      "choice-card flex min-w-0 cursor-pointer flex-col justify-between gap-2.5 rounded-xl border p-4 transition-colors",
                       selected
                         ? "border-[var(--text-primary)] bg-[var(--bg-paper)]"
                         : "border-[var(--border-color)] bg-[var(--bg-surface)] hover:border-[var(--border-strong)]",
@@ -470,7 +457,7 @@ export function ClaimBuilder({
                         <span className="font-mono-code block truncate text-sm font-bold text-[var(--text-primary)]">
                           .{dom.domain}
                         </span>
-                        {pill.isAuto ? (
+                        {isDomAuto ? (
                           <CloudCheck
                             size={16}
                             weight="duotone"
@@ -486,12 +473,12 @@ export function ClaimBuilder({
                           />
                         )}
                       </div>
-                      <Badge variant={pill.isAuto ? "live" : "warn"} className="min-w-[9.5rem] justify-center">
-                        {pill.label}
+                      <Badge variant={isDomAuto ? "live" : "warn"} className="min-w-[7.25rem] justify-center">
+                        {isDomAuto ? tDomains("modeAuto") : tDomains("modeCopy")}
                       </Badge>
                     </div>
-                    <span className="line-clamp-2 min-h-[2.25rem] text-xs leading-snug text-[var(--text-muted)]">
-                      {localizedDomainNote(dom)}
+                    <span className="min-h-[2.25rem] text-xs leading-relaxed text-[var(--text-muted)]">
+                      {localizedDomainNote(dom, cap?.mode)}
                     </span>
                   </label>
                 );
@@ -499,11 +486,11 @@ export function ClaimBuilder({
             </div>
           </fieldset>
 
-          {/* Subdomain Input + Fixed-Width Right-Aligned Domain Suffix */}
+          {/* Subdomain Input + Fixed-Width Suffix */}
           <div className="flex min-w-0 flex-col gap-1.5">
             <label
               htmlFor="claim-label"
-              className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]"
+              className="text-xs font-semibold text-[var(--text-secondary)]"
             >
               {t("subdomainLabel")}
             </label>
@@ -546,8 +533,7 @@ export function ClaimBuilder({
               </span>
             </div>
 
-            {/* Single fixed-height helper/error slot (0px shift across vi/en on blur/error) */}
-            <div className="min-h-[2.25rem] text-xs leading-snug">
+            <div className="min-h-[1.5rem] text-xs leading-snug">
               {showLabelError && labelError ? (
                 <p id="claim-label-error" className="font-medium text-[var(--badge-dead-fg)]">
                   {tCommon("errorPrefix")} {labelError}
@@ -579,12 +565,12 @@ export function ClaimBuilder({
             </div>
           ) : null}
 
-          {/* Deploy Destination Preset */}
-          <fieldset className="min-w-0 space-y-2">
-            <legend className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
+          {/* Friendly Hosting Platform Selector */}
+          <fieldset className="min-w-0 space-y-2.5">
+            <legend className="text-xs font-semibold text-[var(--text-secondary)]">
               {t("presetLegend")}
             </legend>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {(Object.keys(PRESET_DEFAULTS) as HostPreset[]).map((key) => {
                 const active = preset === key;
                 const radioId = `preset-${key}`;
@@ -593,7 +579,7 @@ export function ClaimBuilder({
                     key={key}
                     htmlFor={radioId}
                     className={cn(
-                      "choice-card inline-flex min-h-9 min-w-[5.25rem] cursor-pointer items-center justify-center rounded-md border px-3 text-xs font-semibold transition-colors",
+                      "choice-card inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition-colors",
                       active
                         ? "border-[var(--btn-primary-bg)] bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]"
                         : "border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]",
@@ -608,62 +594,83 @@ export function ClaimBuilder({
                       onChange={() => handlePresetChange(key)}
                       className="sr-radio"
                     />
-                    {PRESET_DEFAULTS[key].label}
+                    {key === "vps" ? (
+                      <HardDrives size={14} weight="duotone" aria-hidden="true" />
+                    ) : key === "vercel" ? (
+                      <RocketLaunch size={14} weight="duotone" aria-hidden="true" />
+                    ) : (
+                      <Globe size={14} weight="duotone" aria-hidden="true" />
+                    )}
+                    <span className="truncate">{tPopup(PRESET_DEFAULTS[key].labelKey)}</span>
                   </label>
                 );
               })}
             </div>
-            <p className="min-h-[2.25rem] text-xs text-[var(--text-muted)]">
+            <p className="min-h-[1.5rem] text-xs text-[var(--text-muted)]">
               {t(PRESET_DEFAULTS[preset].hintKey)}
             </p>
           </fieldset>
 
-          {/* Uniform 2-Column Field Grid with symmetric 3-line error/hint slots (0px shift!) */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <label
-                htmlFor="claim-target"
-                className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]"
-              >
-                {recordType === "A" ? t("targetIpv4Label") : t("targetCnameLabel")}
-              </label>
-              <input
-                ref={targetInputRef}
-                id="claim-target"
-                name="target"
-                type="text"
-                required
-                value={target}
-                onChange={(e) => {
-                  setTarget(e.target.value);
-                  setApplyFeedback(null);
-                }}
-                onBlur={() => setTargetBlurred(true)}
-                aria-invalid={showTargetError ? "true" : "false"}
-                aria-describedby={showTargetError ? "claim-target-error" : undefined}
-                autoCorrect="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                className={cn(
-                  "editorial-input font-mono-code min-h-10 min-w-0 w-full rounded-lg border bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)] transition-colors focus-visible:border-[var(--focus-ring)] sm:text-sm",
-                  showTargetError
-                    ? "border-[var(--badge-dead-fg)]"
-                    : "border-[var(--border-color)] hover:border-[var(--border-strong)]",
-                )}
-              />
-              <div className="min-h-[3.25rem] text-xs leading-snug">
-                {showTargetError && targetError ? (
-                  <p id="claim-target-error" className="font-medium text-[var(--badge-dead-fg)]">
-                    {tCommon("errorPrefix")} {targetError}
-                  </p>
-                ) : null}
-              </div>
+          {/* Clean Full-Width Destination Input (no cramped 2-col TXT clutter) */}
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label
+              htmlFor="claim-target"
+              className="text-xs font-semibold text-[var(--text-secondary)]"
+            >
+              {recordType === "A" ? t("targetIpv4Label") : t("targetCnameLabel")}
+            </label>
+            <input
+              ref={targetInputRef}
+              id="claim-target"
+              name="target"
+              type="text"
+              required
+              value={target}
+              onChange={(e) => {
+                setTarget(e.target.value);
+                setApplyFeedback(null);
+              }}
+              onBlur={() => setTargetBlurred(true)}
+              aria-invalid={showTargetError ? "true" : "false"}
+              aria-describedby={showTargetError ? "claim-target-error" : undefined}
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              className={cn(
+                "editorial-input font-mono-code min-h-10 min-w-0 w-full rounded-lg border bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)] transition-colors focus-visible:border-[var(--focus-ring)] sm:text-sm",
+                showTargetError
+                  ? "border-[var(--badge-dead-fg)]"
+                  : "border-[var(--border-color)] hover:border-[var(--border-strong)]",
+              )}
+            />
+            <div className="min-h-[1.5rem] text-xs leading-snug">
+              {showTargetError && targetError ? (
+                <p id="claim-target-error" className="font-medium text-[var(--badge-dead-fg)]">
+                  {tCommon("errorPrefix")} {targetError}
+                </p>
+              ) : null}
             </div>
+          </div>
 
-            <div className="flex min-w-0 flex-col gap-1.5">
+          {/* Optional Verification Code — collapsed by default so non-coders stay calm */}
+          <details
+            className="editorial-accordion rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] px-3.5 py-2.5"
+            onToggle={(e) => setVerifyOpen((e.currentTarget as HTMLDetailsElement).open)}
+          >
+            <summary className="flex cursor-pointer items-center justify-between gap-2 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+              <span>{t("verifySectionToggle")}</span>
+              <CaretDown
+                size={14}
+                weight="bold"
+                aria-hidden="true"
+                className={cn("shrink-0 transition-transform", verifyOpen && "rotate-180")}
+              />
+            </summary>
+
+            <div className="mt-3 space-y-2.5 border-t border-[var(--border-color)] pt-3">
               <label
                 htmlFor="claim-verify-value"
-                className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]"
+                className="block text-xs font-medium text-[var(--text-secondary)]"
               >
                 {preset === "vercel" ? t("verifyVercelLabel") : t("verifyExtraLabel")}
               </label>
@@ -685,41 +692,41 @@ export function ClaimBuilder({
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
-                className="font-mono-code min-h-10 min-w-0 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] focus-visible:border-[var(--focus-ring)] sm:text-sm"
+                className="font-mono-code min-h-10 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] focus-visible:border-[var(--focus-ring)] sm:text-sm"
               />
-              <div className="flex min-h-[3.25rem] items-start pt-0.5 text-[11px] text-[var(--text-muted)]">
-                {preset === "vercel" ? (
-                  <span className="truncate">
-                    {t("verifyVercelHint", { domain: activeDomainMeta.domain })}
-                  </span>
-                ) : (
-                  <span className="inline-flex min-w-0 items-center gap-1.5">
-                    <span>{t("verifyExtraPrefixLabel")}</span>
-                    <input
-                      aria-label={t("verifyExtraPrefixAria")}
-                      type="text"
-                      value={extraName}
-                      onChange={(e) => setExtraName(e.target.value)}
-                      placeholder="_acme-challenge"
-                      autoCorrect="off"
-                      autoCapitalize="none"
-                      spellCheck={false}
-                      className="font-mono-code w-36 min-w-0 rounded border border-[var(--border-color)] bg-[var(--bg-surface)] px-1.5 py-0.5 text-[11px] text-[var(--text-primary)]"
-                    />
-                  </span>
-                )}
-              </div>
+              {preset === "vercel" ? (
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  {t("verifyVercelHint", { domain: activeDomainMeta.domain })}
+                </p>
+              ) : (
+                <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+                  <span>{t("verifyExtraPrefixLabel")}</span>
+                  <input
+                    aria-label={t("verifyExtraPrefixAria")}
+                    type="text"
+                    value={extraName}
+                    onChange={(e) => setExtraName(e.target.value)}
+                    placeholder="_acme-challenge"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    className="font-mono-code w-40 rounded border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-[11px] text-[var(--text-primary)]"
+                  />
+                </div>
+              )}
             </div>
-          </div>
+          </details>
 
-          {/* Stable Footer Slot (identical footprint across Auto & Namecheap + reserved feedback area) */}
+          {/* Action Footer */}
           <div className="space-y-3 border-t border-[var(--border-color)] pt-4">
-            <div className="flex min-h-[7.25rem] flex-col justify-between gap-2.5 sm:min-h-[6rem]">
+            <div className="flex min-h-[5.5rem] flex-col justify-between gap-2.5">
               {isManualOnly ? (
                 <>
-                  <p className="min-h-[3.75rem] text-xs leading-relaxed text-[var(--text-muted)] sm:min-h-[2.4rem]">
-                    <strong className="text-[var(--text-primary)]">{t("namecheapFooterLabel")}</strong>{" "}
-                    {t("namecheapFooterText")}
+                  <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                    <strong className="text-[var(--text-primary)]">
+                      {t("namecheapFooterLabel", { registrar: activeDomainMeta.registrar })}
+                    </strong>{" "}
+                    {t("namecheapFooterText", { registrar: activeDomainMeta.registrar })}
                   </p>
                   <div className="flex items-center">
                     <span className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md border border-[var(--badge-warn-border)] bg-[var(--badge-warn-bg)] px-4 text-xs font-semibold text-[var(--badge-warn-fg)]">
@@ -730,13 +737,13 @@ export function ClaimBuilder({
                 </>
               ) : (
                 <>
-                  <p className="min-h-[3.75rem] text-xs leading-relaxed text-[var(--text-muted)] sm:min-h-[2.4rem]">
+                  <p className="text-xs leading-relaxed text-[var(--text-muted)]">
                     <strong className="text-[var(--text-primary)]">
                       {t("autoApiFooterLabel", { registrar: activeDomainMeta.registrar })}
                     </strong>{" "}
-                    {authenticated
+                    {authenticated && isAutoReady
                       ? t("autoApiUnlockedDesc")
-                      : configured
+                      : configured && isAutoReady
                         ? t("autoApiLockedDesc")
                         : t("autoApiEnvMissingDesc")}
                   </p>
@@ -744,14 +751,14 @@ export function ClaimBuilder({
                     <Button
                       type="submit"
                       size="lg"
-                      disabled={applying || capability?.mode === "auto-needs-env"}
+                      disabled={applying || !isAutoReady}
                       className="w-full"
                     >
                       <Plus size={15} weight="bold" aria-hidden="true" />
                       <span>
                         {applying
                           ? t("creatingDnsAction")
-                          : capability?.mode === "auto-needs-env"
+                          : !isAutoReady
                             ? t("providerEnvMissingAction")
                             : t("createDnsAction")}
                       </span>
@@ -775,7 +782,6 @@ export function ClaimBuilder({
               )}
             </div>
 
-            {/* Reserved feedback slot prevents vertical jump on submit response */}
             <div className="min-h-[3rem]">
               {applyFeedback ? (
                 <div
@@ -800,138 +806,136 @@ export function ClaimBuilder({
           </div>
         </form>
 
-        {/* Right: Faux-OS Editorial DNS Preview Window + Live Verification + Lazy GitOps Accordion */}
+        {/* Right: Friendly Live Address Preview + Copyable Connection Details + Optional GitOps */}
         <div className="min-w-0 space-y-4">
-          <Card className="isolated-card min-w-0 overflow-hidden">
-            {/* Faux-OS Minimal Window Chrome Bar */}
-            <div className="flex items-center justify-between gap-2 border-b border-[var(--border-color)] bg-[var(--bg-paper)] px-4 py-2.5">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="flex shrink-0 items-center gap-1.5" aria-hidden="true">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[var(--border-strong)]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[var(--border-strong)]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[var(--border-strong)]" />
-                </span>
-                <span className="font-mono-code truncate text-[11px] font-semibold tracking-wider text-[var(--text-muted)]">
-                  {t("previewWindowLabel", { domain: activeDomainMeta.domain })}
-                </span>
-              </div>
-              <CopyButton value={copyAllSummary} label={t("copyAllAria")} showText />
-            </div>
-
-            <div className="space-y-4 p-6">
-              <div className="min-w-0">
+          <Card className="isolated-card min-w-0 space-y-5 p-6">
+            {/* Friendly Resulting Address Card */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
                 <h2 className="text-base font-semibold text-[var(--text-primary)]">
                   {t("step2Title")}
                 </h2>
-                <p className="font-mono-code mt-0.5 truncate text-xs text-[var(--text-muted)]">
-                  {t("targetFqdnPrefix", { fqdn })}
-                </p>
+                <CopyButton value={copyAllSummary} label={t("copyAllAria")} showText />
               </div>
 
-              <ul role="list" className="space-y-3">
-                {previewRows.map((row) => (
-                  <li
-                    key={row.id}
-                    className="min-w-0 space-y-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] p-3.5"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="info" className="font-mono-code min-w-[3.75rem] justify-center">
-                          {row.type}
-                        </Badge>
-                        <span className="text-xs font-semibold text-[var(--text-primary)]">
-                          {localizedRowPurpose(row.id, row.purpose)}
-                        </span>
-                      </div>
-                      <span className="font-mono-code shrink-0 text-[11px] text-[var(--text-muted)]">
-                        TTL {row.ttl}s
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <div className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2">
-                        <div className="min-w-0 flex-1 overflow-hidden">
-                          <span className="block text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
-                            {t("hostLabel")}
-                          </span>
-                          <code className="font-mono-code block truncate text-xs font-semibold text-[var(--text-primary)]">
-                            {row.host}
-                          </code>
-                        </div>
-                        <CopyButton
-                          value={row.host}
-                          label={t("copyHostAria", { host: row.host })}
-                        />
-                      </div>
-
-                      <div className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2">
-                        <div className="min-w-0 flex-1 overflow-hidden">
-                          <span className="block text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
-                            {t("valueLabel")}
-                          </span>
-                          <code className="font-mono-code block truncate text-xs font-semibold text-[var(--text-primary)]">
-                            {row.value}
-                          </code>
-                        </div>
-                        <CopyButton
-                          value={row.value}
-                          label={t("copyValueAria", { value: row.value })}
-                        />
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="space-y-2 border-t border-[var(--border-color)] pt-3.5">
-                <div className="flex min-w-0 items-center justify-between gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleVerifyDoh}
-                    disabled={verifyingDoh}
-                    className="min-w-[9.5rem] shrink-0"
-                  >
-                    <Broadcast size={15} weight="duotone" aria-hidden="true" />
-                    <span>{verifyingDoh ? t("checkingDns") : t("verifyLiveDns")}</span>
-                  </Button>
-                  <span className="font-mono-code min-w-0 flex-1 truncate text-right text-xs text-[var(--text-muted)]">
-                    {fqdn}
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-paper)] px-4 py-3">
+                <div className="min-w-0">
+                  <span className="block text-[11px] font-medium text-[var(--text-muted)]">
+                    {t("previewHeading")}
                   </span>
+                  <a
+                    href={`https://${fqdn}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono-code mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-sm font-bold text-[var(--text-primary)] underline decoration-[var(--border-strong)] underline-offset-4 hover:text-[var(--accent-terracotta)]"
+                  >
+                    <span className="truncate">https://{fqdn}</span>
+                    <ArrowUpRight size={13} weight="bold" aria-hidden="true" className="shrink-0" />
+                  </a>
                 </div>
+                <CopyButton value={`https://${fqdn}`} label={tCommon("copyLink")} />
+              </div>
+            </div>
 
-                <div className="min-h-[2.25rem]">
-                  {dohResult ? (
-                    <p
-                      role="status"
-                      className={cn(
-                        "font-mono-code truncate text-xs font-semibold",
-                        dohResult.status === "found"
-                          ? "text-[var(--badge-live-fg)]"
-                          : dohResult.status === "error"
-                            ? "text-[var(--badge-dead-fg)]"
-                            : "text-[var(--badge-warn-fg)]",
-                      )}
-                    >
-                      {dohResult.error
-                        ? dohResult.error
-                        : dohResult.answers.length > 0
-                          ? t("dohLiveFound", {
-                              resolver: dohResult.resolver ?? "DoH",
-                              answers: dohResult.answers.map((a) => a.data).join(", "),
-                            })
-                          : t("dohNotPropagated", { status: dohResult.status })}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-[var(--text-muted)]">{t("dohHint")}</p>
-                  )}
-                </div>
+            {/* Clean Copyable Connection Rows */}
+            <ul role="list" className="space-y-3">
+              {previewRows.map((row) => (
+                <li
+                  key={row.id}
+                  className="min-w-0 space-y-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] p-3.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-[var(--text-primary)]">
+                      {localizedRowPurpose(row.id, row.purpose)}
+                    </span>
+                    <Badge variant="info" className="font-mono-code">
+                      {row.type}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2">
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <span className="block text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
+                          {t("hostLabel")}
+                        </span>
+                        <code className="font-mono-code block truncate text-xs font-semibold text-[var(--text-primary)]">
+                          {row.host}
+                        </code>
+                      </div>
+                      <CopyButton
+                        value={row.host}
+                        label={t("copyHostAria", { host: row.host })}
+                      />
+                    </div>
+
+                    <div className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2">
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <span className="block text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
+                          {t("valueLabel")}
+                        </span>
+                        <code className="font-mono-code block truncate text-xs font-semibold text-[var(--text-primary)]">
+                          {row.value}
+                        </code>
+                      </div>
+                      <CopyButton
+                        value={row.value}
+                        label={t("copyValueAria", { value: row.value })}
+                      />
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* Plain-Language Live Check */}
+            <div className="space-y-2 border-t border-[var(--border-color)] pt-3.5">
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleVerifyDoh}
+                  disabled={verifyingDoh}
+                  className="min-w-[9.5rem] shrink-0"
+                >
+                  <Broadcast size={15} weight="duotone" aria-hidden="true" />
+                  <span>{verifyingDoh ? t("checkingDns") : t("verifyLiveDns")}</span>
+                </Button>
+                <span className="font-mono-code min-w-0 flex-1 truncate text-right text-xs text-[var(--text-muted)]">
+                  {fqdn}
+                </span>
+              </div>
+
+              <div className="min-h-[2rem]">
+                {dohResult ? (
+                  <p
+                    role="status"
+                    className={cn(
+                      "text-xs font-medium",
+                      dohResult.status === "found"
+                        ? "text-[var(--badge-live-fg)]"
+                        : dohResult.status === "error"
+                          ? "text-[var(--badge-dead-fg)]"
+                          : "text-[var(--badge-warn-fg)]",
+                    )}
+                  >
+                    {dohResult.error
+                      ? dohResult.error
+                      : dohResult.answers.length > 0
+                        ? t("dohLiveFound", {
+                            answers: dohResult.answers.map((a) => a.data).join(", "),
+                          })
+                        : t("dohNotPropagated")}
+                  </p>
+                ) : (
+                  <p className="text-xs text-[var(--text-muted)]">{t("dohHint")}</p>
+                )}
               </div>
             </div>
           </Card>
 
-          {/* Lazy-Loaded Optional GitOps PR Accordion (only fetches chunk when expanded) */}
+          {/* Lazy-Loaded Optional GitOps PR Accordion */}
           <details
             className="editorial-accordion bento-card isolated-card min-w-0 p-5"
             onToggle={(e) => setGitOpsOpen((e.currentTarget as HTMLDetailsElement).open)}
@@ -939,15 +943,18 @@ export function ClaimBuilder({
             <summary
               onMouseEnter={preloadGitOpsPanel}
               onFocus={preloadGitOpsPanel}
-              className="flex cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-[var(--text-primary)]"
+              className="flex cursor-pointer items-center justify-between gap-2 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             >
               <span className="inline-flex items-center gap-2">
-                <Code size={16} weight="duotone" aria-hidden="true" className="text-[var(--text-muted)]" />
+                <Code size={15} weight="duotone" aria-hidden="true" className="text-[var(--text-muted)]" />
                 <span>{t("gitopsSummary")}</span>
               </span>
-              <span className="font-mono-code text-xs text-[var(--text-muted)]">
-                {gitOpsOpen ? "−" : "+"}
-              </span>
+              <CaretDown
+                size={14}
+                weight="bold"
+                aria-hidden="true"
+                className={cn("transition-transform", gitOpsOpen && "rotate-180")}
+              />
             </summary>
 
             {gitOpsOpen ? (

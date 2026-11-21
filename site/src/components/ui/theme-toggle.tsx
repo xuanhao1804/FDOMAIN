@@ -21,6 +21,12 @@ function getStoredScheme(): "light" | "dark" | null {
   }
 }
 
+function getActiveMetaOverride(): "light" | "dark" | null {
+  if (typeof document === "undefined") return null;
+  const content = document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]')?.content;
+  return content === "light" || content === "dark" ? content : null;
+}
+
 function applyMetaColorScheme(value: "light" | "dark" | "light dark") {
   let meta = document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]');
   if (!meta) {
@@ -46,8 +52,7 @@ export function ThemeToggle() {
 
   function handleToggle() {
     const system = getSystemScheme();
-    const stored = getStoredScheme();
-    const rendered = stored ?? system;
+    const rendered = getActiveMetaOverride() ?? getStoredScheme() ?? system;
     const target: "light" | "dark" = rendered === "dark" ? "light" : "dark";
 
     if (target === system) {
@@ -68,13 +73,7 @@ export function ThemeToggle() {
   }
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="iconSm"
-      onClick={handleToggle}
-      aria-label={t("themeToggleAria")}
-    >
+    <Button type="button" variant="outline" size="iconSm" onClick={handleToggle}>
       <span className="theme-icon-light items-center justify-center">
         <Moon size={16} weight="duotone" aria-hidden="true" />
         <span className="sr-only">{t("themeSwitchToDark")}</span>
