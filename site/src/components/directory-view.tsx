@@ -423,7 +423,7 @@ export function DirectoryView({
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
-                className="min-h-10 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] py-2 pr-10 pl-10 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors focus-visible:border-[var(--focus-ring)] sm:text-sm"
+                className="field-input min-h-10 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] py-2 pr-10 pl-10 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] sm:text-sm"
               />
               <kbd aria-hidden="true" className="kbd-key pointer-events-none absolute top-1/2 right-3 -translate-y-1/2">
                 /

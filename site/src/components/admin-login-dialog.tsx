@@ -165,7 +165,7 @@ export function AdminLoginDialog({
           >
             {t("passwordLabel")}
           </label>
-          <div className="flex items-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] focus-within:border-[var(--focus-ring)]">
+          <div className="composite-field flex items-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
             <input
               ref={passwordInputRef}
               id="admin-password-input"

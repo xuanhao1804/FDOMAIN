@@ -496,7 +496,7 @@ export function ClaimBuilder({
             </label>
             <div
               className={cn(
-                "flex min-w-0 items-center overflow-hidden rounded-lg border bg-[var(--bg-surface)] transition-colors focus-within:border-[var(--focus-ring)]",
+                "composite-field flex min-w-0 items-center overflow-hidden rounded-lg border bg-[var(--bg-surface)]",
                 showLabelError ? "border-[var(--badge-dead-fg)]" : "border-[var(--border-color)]",
               )}
             >
@@ -637,7 +637,7 @@ export function ClaimBuilder({
               autoCapitalize="none"
               spellCheck={false}
               className={cn(
-                "editorial-input font-mono-code min-h-10 min-w-0 w-full rounded-lg border bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)] transition-colors focus-visible:border-[var(--focus-ring)] sm:text-sm",
+                "field-input editorial-input font-mono-code min-h-10 min-w-0 w-full rounded-lg border bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)] sm:text-sm",
                 showTargetError
                   ? "border-[var(--badge-dead-fg)]"
                   : "border-[var(--border-color)] hover:border-[var(--border-strong)]",
@@ -692,7 +692,7 @@ export function ClaimBuilder({
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
-                className="font-mono-code min-h-10 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] focus-visible:border-[var(--focus-ring)] sm:text-sm"
+                className="field-input font-mono-code min-h-10 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] hover:border-[var(--border-strong)] sm:text-sm"
               />
               {preset === "vercel" ? (
                 <p className="text-[11px] text-[var(--text-muted)]">

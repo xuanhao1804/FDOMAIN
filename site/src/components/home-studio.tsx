@@ -206,11 +206,11 @@ export function HomeStudio({ rootDomains, defaultRootDomain }: HomeStudioProps) 
           <span>{t("eyebrow", { count: rootDomains.length })}</span>
         </div>
 
-        {/* Calm Editorial Headline */}
+        {/* Calm Modern Display Headline (crisp Vietnamese diacritics) */}
         <div className="space-y-3">
           <h1
             id="home-hero-title"
-            className="font-editorial text-4xl font-semibold text-[var(--text-primary)] sm:text-5xl"
+            className="text-3xl font-bold tracking-[-0.03em] text-[var(--text-primary)] sm:text-[2.75rem] sm:leading-[1.12]"
           >
             {t("title")}
           </h1>
@@ -219,12 +219,12 @@ export function HomeStudio({ rootDomains, defaultRootDomain }: HomeStudioProps) 
           </p>
         </div>
 
-        {/* The Single Focal Input Form */}
-        <form onSubmit={handleSubmit} noValidate className="mx-auto w-full max-w-xl space-y-3">
-          <div className="home-form-bar p-1.5 sm:p-2">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-0">
-              {/* Subdomain Input + Flush Domain Selector */}
-              <div className="flex min-w-0 flex-1 items-center">
+        {/* The Single Focal Input Form — concentric 16px outer / 10px inner geometry, 44px uniform height */}
+        <form onSubmit={handleSubmit} noValidate className="mx-auto w-full max-w-[38rem] space-y-3">
+          <div className="home-form-bar p-1.5">
+            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-0">
+              {/* Subdomain Input + Seamless Hairline Divider + Flush Domain Selector */}
+              <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-0">
                 <label htmlFor="home-subdomain-input" className="sr-only">
                   {t("inputLabel")}
                 </label>
@@ -246,17 +246,22 @@ export function HomeStudio({ rootDomains, defaultRootDomain }: HomeStudioProps) 
                   autoCapitalize="none"
                   autoComplete="off"
                   spellCheck={false}
-                  className="font-mono-code min-h-11 min-w-0 flex-1 bg-transparent px-3.5 text-base font-medium text-[var(--text-primary)] placeholder:font-sans placeholder:font-normal placeholder:text-[var(--text-muted)] focus:outline-none sm:text-[15px]"
+                  className="font-mono-code h-11 min-w-0 flex-1 bg-transparent px-3.5 text-base font-medium text-[var(--text-primary)] placeholder:font-sans placeholder:font-normal placeholder:text-[var(--text-muted)] focus:outline-none focus-visible:outline-none sm:px-4 sm:text-[15px]"
                 />
 
-                {/* Flush Multi-Domain Dropdown Selector */}
+                <span
+                  aria-hidden="true"
+                  className="hidden h-5 w-px shrink-0 bg-[var(--border-color)] sm:block"
+                />
+
+                {/* Flush Multi-Domain Dropdown Selector (zero nested box clutter on desktop) */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
                       aria-label={t("domainPickerAria")}
-                      className="font-mono-code inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-between gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-paper)] px-3 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] sm:mr-2 sm:text-[13px]"
-                      style={{ minWidth: `calc(${maxDomainChars}ch + 2.5rem)` }}
+                      className="font-mono-code inline-flex h-11 shrink-0 cursor-pointer items-center justify-between gap-1.5 rounded-[10px] bg-[var(--bg-subtle)] px-3 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] sm:mx-1 sm:bg-transparent sm:hover:bg-[var(--bg-subtle)] sm:text-[13px]"
+                      style={{ minWidth: `calc(${maxDomainChars}ch + 2.25rem)` }}
                     >
                       <span className="truncate">.{activeDomainMeta.domain}</span>
                       <CaretDown
@@ -310,12 +315,12 @@ export function HomeStudio({ rootDomains, defaultRootDomain }: HomeStudioProps) 
                 </DropdownMenu>
               </div>
 
-              {/* Primary Continue CTA */}
+              {/* Primary Continue CTA — exact 44px height & 10px concentric corner radius */}
               <Button
                 type="submit"
                 size="lg"
                 disabled={checking}
-                className="min-h-11 w-full shrink-0 rounded-lg sm:min-w-[8.75rem] sm:w-auto"
+                className="h-11 w-full shrink-0 rounded-[10px] px-5 sm:min-w-[8.75rem] sm:w-auto"
               >
                 {checking ? (
                   <>

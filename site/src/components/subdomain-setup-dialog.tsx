@@ -578,7 +578,7 @@ export function SubdomainSetupDialog({
                   autoCapitalize="none"
                   spellCheck={false}
                   className={cn(
-                    "font-mono-code min-h-10 w-full rounded-lg border bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)] transition-colors focus-visible:border-[var(--focus-ring)] sm:text-sm",
+                    "field-input font-mono-code min-h-10 w-full rounded-lg border bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)] sm:text-sm",
                     showDestError
                       ? "border-[var(--badge-dead-fg)]"
                       : "border-[var(--border-color)] hover:border-[var(--border-strong)]",
@@ -743,7 +743,7 @@ export function SubdomainSetupDialog({
                       autoCorrect="off"
                       autoCapitalize="none"
                       spellCheck={false}
-                      className="font-mono-code min-h-9 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+                      className="field-input font-mono-code min-h-9 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
                     />
                     {preset === "vercel" ? (
                       <p className="text-[11px] text-[var(--text-muted)]">

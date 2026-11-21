@@ -48,18 +48,19 @@
   --badge-muted-fg-light: #52504b;
   --badge-muted-border-light: #dad7cf;
 
-  --focus-ring-light: #1b5987;
+  --focus-ring-light: #161614;
+  --focus-ring-soft-light: rgba(22, 22, 20, 0.1);
   --scrollbar-track-light: #efeee9;
   --scrollbar-thumb-light: #9f9b90;
   --selection-bg-light: rgba(169, 71, 37, 0.16);
-  --dot-grid-light: rgba(22, 22, 20, 0.085);
-  --hero-glow-light: rgba(184, 83, 47, 0.085);
-  --hero-glow-secondary-light: rgba(186, 154, 114, 0.09);
-  --ring-stroke-light: rgba(22, 22, 20, 0.055);
+  --dot-grid-light: rgba(22, 22, 20, 0.11);
+  --hero-glow-light: rgba(184, 83, 47, 0.11);
+  --hero-glow-secondary-light: rgba(196, 162, 118, 0.13);
+  --ring-stroke-light: rgba(22, 22, 20, 0.065);
   --modal-backdrop-light: rgba(20, 20, 19, 0.44);
   --modal-shadow-light: 0 20px 48px rgba(0, 0, 0, 0.14);
   --popover-shadow-light: 0 10px 28px rgba(0, 0, 0, 0.1);
-  --form-bar-shadow-light: 0 10px 30px rgba(22, 22, 20, 0.06);
+  --form-bar-shadow-light: 0 12px 34px rgba(22, 22, 20, 0.07), 0 1px 2px rgba(22, 22, 20, 0.04);
 
   /* Warm Obsidian Palette — Dark (tuned for crisp surface hierarchy & contrast) */
   --bg-canvas-dark: #121211;
@@ -105,18 +106,19 @@
   --badge-muted-fg-dark: #bdbab0;
   --badge-muted-border-dark: #3c3c36;
 
-  --focus-ring-dark: #8fc7f3;
+  --focus-ring-dark: #f5f4ef;
+  --focus-ring-soft-dark: rgba(245, 244, 239, 0.14);
   --scrollbar-track-dark: #1b1b19;
   --scrollbar-thumb-dark: #63625a;
   --selection-bg-dark: rgba(230, 140, 105, 0.28);
-  --dot-grid-dark: rgba(245, 244, 239, 0.085);
-  --hero-glow-dark: rgba(230, 140, 105, 0.11);
-  --hero-glow-secondary-dark: rgba(164, 145, 112, 0.08);
-  --ring-stroke-dark: rgba(245, 244, 239, 0.06);
+  --dot-grid-dark: rgba(245, 244, 239, 0.1);
+  --hero-glow-dark: rgba(230, 140, 105, 0.13);
+  --hero-glow-secondary-dark: rgba(164, 145, 112, 0.1);
+  --ring-stroke-dark: rgba(245, 244, 239, 0.075);
   --modal-backdrop-dark: rgba(6, 6, 5, 0.72);
   --modal-shadow-dark: 0 24px 60px rgba(0, 0, 0, 0.62);
   --popover-shadow-dark: 0 16px 40px rgba(0, 0, 0, 0.54);
-  --form-bar-shadow-dark: 0 14px 40px rgba(0, 0, 0, 0.38);
+  --form-bar-shadow-dark: 0 16px 44px rgba(0, 0, 0, 0.44), 0 1px 2px rgba(0, 0, 0, 0.3);
 
   /* Active Semantic Tokens (Fallback Base: Light) */
   --bg-canvas: var(--bg-canvas-light);
@@ -163,6 +165,7 @@
   --badge-muted-border: var(--badge-muted-border-light);
 
   --focus-ring: var(--focus-ring-light);
+  --focus-ring-soft: var(--focus-ring-soft-light);
   --scrollbar-track: var(--scrollbar-track-light);
   --scrollbar-thumb: var(--scrollbar-thumb-light);
   --selection-bg: var(--selection-bg-light);
@@ -223,6 +226,7 @@
   --badge-muted-border: var(--badge-muted-border-dark);
 
   --focus-ring: var(--focus-ring-dark);
+  --focus-ring-soft: var(--focus-ring-soft-dark);
   --scrollbar-track: var(--scrollbar-track-dark);
   --scrollbar-thumb: var(--scrollbar-thumb-dark);
   --selection-bg: var(--selection-bg-dark);
@@ -286,6 +290,7 @@
     --badge-muted-border: var(--badge-muted-border-dark);
 
     --focus-ring: var(--focus-ring-dark);
+    --focus-ring-soft: var(--focus-ring-soft-dark);
     --scrollbar-track: var(--scrollbar-track-dark);
     --scrollbar-thumb: var(--scrollbar-thumb-dark);
     --selection-bg: var(--selection-bg-dark);
@@ -347,6 +352,7 @@
     --badge-muted-border: light-dark(var(--badge-muted-border-light), var(--badge-muted-border-dark));
 
     --focus-ring: light-dark(var(--focus-ring-light), var(--focus-ring-dark));
+    --focus-ring-soft: light-dark(var(--focus-ring-soft-light), var(--focus-ring-soft-dark));
     --scrollbar-track: light-dark(var(--scrollbar-track-light), var(--scrollbar-track-dark));
     --scrollbar-thumb: light-dark(var(--scrollbar-thumb-light), var(--scrollbar-thumb-dark));
     --selection-bg: light-dark(var(--selection-bg-light), var(--selection-bg-dark));
@@ -442,10 +448,38 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Focus indicators */
-:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+@layer base {
+  /* Default keyboard focus indicator (layered so Tailwind utilities & composite shells override cleanly) */
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Clean unified focus states for standalone inputs and composite input shells */
+.field-input {
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.field-input:focus,
+.field-input:focus-visible {
+  outline: none;
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 3px var(--focus-ring-soft);
+}
+
+.composite-field {
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.composite-field:focus-within {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 3px var(--focus-ring-soft);
+}
+
+.composite-field input:focus,
+.composite-field input:focus-visible {
+  outline: none;
 }
 
 /* Accessible skip link */
@@ -536,13 +570,19 @@ body {
 .home-form-bar {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: var(--form-bar-shadow);
   transition: border-color 160ms ease, box-shadow 180ms ease;
 }
 
 .home-form-bar:focus-within {
-  border-color: var(--border-strong);
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 3px var(--focus-ring-soft), var(--form-bar-shadow);
+}
+
+.home-form-bar input:focus,
+.home-form-bar input:focus-visible {
+  outline: none;
 }
 
 /* Editorial Hero Subtle Texture & Ambient Depth */
